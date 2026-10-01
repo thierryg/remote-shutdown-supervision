@@ -9,7 +9,7 @@
 # =============================================================================
 # Used with Python 3.10 by "make test-oldest" and the CI job of the same name.
 fastapi==0.63.0
-starlette==0.13.6
+starlette==0.52.1
 pydantic==1.8.2
 uvicorn==0.15.0
 cryptography==3.4.8
