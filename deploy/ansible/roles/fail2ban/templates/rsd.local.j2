@@ -1,0 +1,43 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/fail2ban/templates/rsd.local.j2
+# Purpose : fail2ban jails of the master host
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# {{ ansible_managed }} - /etc/fail2ban/jail.d/rsd.local
+[DEFAULT]
+banaction = nftables-multiport
+banaction_allports = nftables-allports
+bantime = {{ rsd_fail2ban_bantime }}
+findtime = {{ rsd_fail2ban_findtime }}
+maxretry = {{ rsd_fail2ban_maxretry }}
+bantime.increment = true
+bantime.maxtime = 1w
+ignoreip = {{ rsd_fail2ban_ignoreip | join(' ') }}
+
+[sshd]
+enabled = true
+mode = aggressive
+port = {{ rsd_ssh_port }}
+backend = systemd
+
+# Console login brute force and enrollment token guessing (the master also rate-limits them).
+[rsd-master]
+enabled = true
+filter = rsd-master
+backend = systemd
+port = {{ rsd_web_port }},{{ rsd_agent_port }}
+maxretry = {{ rsd_fail2ban_login_maxretry }}
+
+# Anyone banned 5 times in a day is banned from every port for a week.
+[recidive]
+enabled = true
+logpath = /var/log/fail2ban.log
+backend = auto
+banaction = %(banaction_allports)s
+bantime = 1w
+findtime = 1d
+maxretry = 5

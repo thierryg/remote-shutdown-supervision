@@ -1,0 +1,42 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/ssh/templates/01-rsd-hardening.conf.j2
+# Purpose : sshd hardening drop-in
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# {{ ansible_managed }} - /etc/ssh/sshd_config.d/01-rsd-hardening.conf
+Port {{ rsd_ssh_port }}
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication {{ 'yes' if rsd_ssh_password_authentication | bool else 'no' }}
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+AuthenticationMethods publickey{{ ' password' if rsd_ssh_password_authentication | bool else '' }}
+MaxAuthTries 3
+MaxSessions 4
+MaxStartups 10:30:60
+LoginGraceTime 30
+{% if rsd_ssh_allow_users | length > 0 %}
+AllowUsers {{ rsd_ssh_allow_users | join(' ') }}
+{% endif %}
+X11Forwarding no
+AllowTcpForwarding no
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+PermitTunnel no
+GatewayPorts no
+PermitUserEnvironment no
+ClientAliveInterval 300
+ClientAliveCountMax 2
+TCPKeepAlive no
+Banner /etc/issue.net
+PrintMotd no
+PrintLastLog yes
+LogLevel VERBOSE
+KexAlgorithms {{ ssh_kex | join(',') }}
+Ciphers {{ ssh_ciphers | join(',') }}
+MACs {{ ssh_macs | join(',') }}
+HostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-256

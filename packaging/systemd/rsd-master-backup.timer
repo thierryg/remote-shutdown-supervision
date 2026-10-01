@@ -1,0 +1,19 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : packaging/systemd/rsd-master-backup.timer
+# Purpose : Run rsd-master-backup.service every day at 03:30 (catch up after downtime)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+[Unit]
+Description=Daily Remote Shutdown master backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "Этот компьютер выключится через {seconds} с.",
+  "shutdown.cancelled": "Запланированное выключение отменено.",
+  "policy.warning": "Этот компьютер выключится через {minutes} мин.: достигнуто максимальное время использования.",
+  "policy.shutdown": "Достигнуто максимальное время использования: компьютер выключится через {seconds} с.",
+  "chat.from": "Сообщение от {author}",
+  "button.ok": "ОК",
+  "button.close": "Закрыть",
+  "button.reply": "Ответить"
+}

@@ -1,0 +1,35 @@
+; =============================================================================
+; Remote Shutdown - LAN parental control and machine management (master/agent)
+; -----------------------------------------------------------------------------
+; File    : deploy/ansible/roles/master/templates/master.ini.j2
+; Purpose : Master settings rendered from the inventory
+; Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+; Project : remote-shutdown (version: VERSION)
+; Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+; =============================================================================
+; {{ ansible_managed }} - /etc/rsd-master/master.ini
+; Restart-required settings of the master. Runtime parameters (uptime limit, warning,
+; countdown) are edited in the web console.
+
+[server]
+web_host = 0.0.0.0
+web_port = {{ rsd_web_port }}
+agent_host = 0.0.0.0
+agent_port = {{ rsd_agent_port }}
+discovery_enabled = {{ 'yes' if rsd_discovery_enabled | bool else 'no' }}
+discovery_port = {{ rsd_discovery_port }}
+tls_extra_names = {{ rsd_tls_extra_names | join(', ') }}
+
+[paths]
+data_dir = /var/lib/rsd-master
+
+[security]
+session_minutes = {{ rsd_session_minutes }}
+session_max_hours = {{ rsd_session_max_hours }}
+keepalive_timeout = {{ rsd_keepalive_timeout }}
+metrics_token_file = {{ rsd_metrics_token_file if rsd_metrics_token | default('') | length > 0 else '' }}
+
+[log]
+log_level = {{ rsd_log_level }}
+; JSON lines: parsed by fail2ban (deploy/ansible/roles/fail2ban) and by jq.
+log_json = yes

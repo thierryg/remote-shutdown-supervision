@@ -1,0 +1,32 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/tests/Dockerfile.target
+# Purpose : Test target mimicking a fresh Debian / Ubuntu / Mint install (systemd + sshd)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Used by rsd-container-test.sh only: systemd as PID 1, OpenSSH and an "admin" sudoer, so that
+# the playbook runs over SSH exactly as on a real host. Never use this image in production.
+#   docker build --build-arg BASE=debian:13 -f Dockerfile.target .
+ARG BASE=ubuntu:26.04
+FROM ${BASE}
+
+ENV DEBIAN_FRONTEND=noninteractive container=docker
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends systemd systemd-sysv dbus openssh-server sudo python3 \
+      iproute2 ca-certificates locales tzdata procps \
+ && rm -rf /var/lib/apt/lists/*
+
+# Installer-created administrator: sudo without password in the test only.
+RUN useradd -m -s /bin/bash admin \
+ && echo 'admin ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-admin-test \
+ && chmod 0440 /etc/sudoers.d/90-admin-test \
+ && install -d -m 700 -o admin -g admin /home/admin/.ssh \
+ && systemctl enable ssh.service \
+ && systemctl mask getty@tty1.service console-getty.service
+
+# The public key is injected at start-up by rsd-container-test.sh.
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]

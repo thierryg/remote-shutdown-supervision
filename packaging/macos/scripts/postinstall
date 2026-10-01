@@ -1,0 +1,26 @@
+#!/bin/sh
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : packaging/macos/scripts/postinstall
+# Purpose : pkg postinstall: default configuration, permissions, start the launchd daemon
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+LABEL=com.labworks.rsd-agent
+PLIST="/Library/LaunchDaemons/$LABEL.plist"
+DIR="/Library/Application Support/rsd-agent"
+
+mkdir -p "$DIR/state"
+chmod 0700 "$DIR" "$DIR/state"
+if [ ! -f "$DIR/agent.json" ]; then
+  cp "$DIR/agent.json.default" "$DIR/agent.json"
+fi
+chmod 0600 "$DIR/agent.json"
+chown root:wheel "$PLIST" /usr/local/bin/rsd-agent
+chmod 0644 "$PLIST"
+/bin/launchctl bootstrap system "$PLIST" 2>/dev/null || /bin/launchctl load -w "$PLIST"
+/bin/launchctl enable "system/$LABEL" 2>/dev/null || true
+/bin/launchctl kickstart -k "system/$LABEL" 2>/dev/null || true
+exit 0

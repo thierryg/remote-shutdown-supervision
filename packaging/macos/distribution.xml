@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+=============================================================================
+Remote Shutdown - LAN parental control and machine management (master/agent)
+=============================================================================
+File    : packaging/macos/distribution.xml
+Purpose : productbuild distribution of the macOS agent installer (universal, macOS 12+)
+Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+Project : remote-shutdown (version: VERSION)
+Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+=============================================================================
+-->
+<installer-gui-script minSpecVersion="2">
+  <title>Remote Shutdown Agent @VERSION@</title>
+  <organization>com.labworks</organization>
+  <license file="LICENSE.txt"/>
+  <options customize="never" require-scripts="true" rootVolumeOnly="true" hostArchitectures="x86_64,arm64"/>
+  <volume-check>
+    <allowed-os-versions><os-version min="12.0"/></allowed-os-versions>
+  </volume-check>
+  <choices-outline>
+    <line choice="default"><line choice="com.labworks.rsd-agent"/></line>
+  </choices-outline>
+  <choice id="default"/>
+  <choice id="com.labworks.rsd-agent" visible="false">
+    <pkg-ref id="com.labworks.rsd-agent"/>
+  </choice>
+  <pkg-ref id="com.labworks.rsd-agent" version="@VERSION@" onConclusion="none">rsd-agent-component.pkg</pkg-ref>
+</installer-gui-script>

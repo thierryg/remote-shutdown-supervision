@@ -1,0 +1,33 @@
+#!/bin/sh
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : packaging/debian/agent/postinst
+# Purpose : Debian postinst: enable and start the agent, print the enrollment hint
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+set -e
+
+case "$1" in
+  configure)
+    chmod 0600 /etc/rsd-agent/agent.json
+    install -d -m 0700 /var/lib/rsd-agent
+    if [ -d /run/systemd/system ]; then
+      systemctl daemon-reload
+      systemctl enable rsd-agent.service >/dev/null 2>&1 || true
+      systemctl restart rsd-agent.service || true
+    fi
+    if [ ! -f /var/lib/rsd-agent/client.crt ]; then
+      cat <<'MSG'
+
+Remote Shutdown agent installed but not enrolled yet. Run the command shown by the
+web console (Enrollment tab), for example:
+  sudo rsd-agent enroll --token <TOKEN> --fingerprint <CA-FINGERPRINT> --master <MASTER-IP>
+
+MSG
+    fi
+    ;;
+esac
+exit 0

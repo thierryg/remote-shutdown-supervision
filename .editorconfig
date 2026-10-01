@@ -1,0 +1,27 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : .editorconfig
+# Purpose : Shared editor settings
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{js,json,html,css,yml,yaml,toml,xml,wxs,plist}]
+indent_size = 2
+
+[{Makefile,*.go}]
+indent_style = tab
+
+[*.md]
+trim_trailing_whitespace = false

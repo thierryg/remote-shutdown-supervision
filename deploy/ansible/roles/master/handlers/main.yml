@@ -1,0 +1,14 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/master/handlers/main.yml
+# Purpose : Handlers of the master role
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+- name: Restart rsd-master
+  ansible.builtin.systemd_service:
+    name: rsd-master
+    state: restarted
+    daemon_reload: true

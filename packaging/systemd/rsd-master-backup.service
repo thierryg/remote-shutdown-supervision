@@ -1,0 +1,38 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : packaging/systemd/rsd-master-backup.service
+# Purpose : Daily backup of the master state (database, PKI, session key), 14 archives kept
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+[Unit]
+Description=Remote Shutdown master backup
+Documentation=file:///usr/share/doc/rsd-master/README.md
+After=rsd-master.service
+
+[Service]
+Type=oneshot
+User=rsd-master
+Group=rsd-master
+# Archives in /var/lib/rsd-master/backups (0700, files 0600): they contain the CA private key.
+ExecStart=/usr/bin/rsd-master backup --keep 14
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/rsd-master
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service

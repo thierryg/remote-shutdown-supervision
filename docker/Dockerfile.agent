@@ -1,0 +1,29 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : docker/Dockerfile.agent
+# Purpose : Container image of a simulated agent (static Go binary, dry-run power off)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# For the local test only: a container cannot power a computer off nor open a desktop popup,
+# so the agent runs with RSD_DRY_RUN=1 (orders are logged) and popups fail softly (logged).
+# Latest stable Go: the standard library security fixes are linked into the static binary.
+FROM golang:1.27-alpine AS build
+WORKDIR /src
+COPY agent/go.mod agent/go.sum ./
+RUN go mod download
+COPY agent/ ./
+COPY VERSION /VERSION
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+      -ldflags "-s -w -X main.version=$(cat /VERSION)" -o /rsd-agent .
+
+FROM alpine:3.21
+RUN adduser -S -D -H -h /var/lib/rsd-agent rsd-agent \
+ && install -d -o rsd-agent -m 0700 /var/lib/rsd-agent
+COPY --from=build /rsd-agent /usr/bin/rsd-agent
+ENV RSD_STATE_DIR=/var/lib/rsd-agent RSD_DRY_RUN=1
+USER rsd-agent
+ENTRYPOINT ["rsd-agent", "--config", "/nonexistent.json"]
+CMD ["run"]

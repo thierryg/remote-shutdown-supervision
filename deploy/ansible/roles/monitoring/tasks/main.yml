@@ -1,0 +1,30 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/monitoring/tasks/main.yml
+# Purpose : Optional node_exporter for a Prometheus server (the /metrics endpoint is in the master role)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+- name: Install prometheus-node-exporter
+  ansible.builtin.apt:
+    name: prometheus-node-exporter
+    state: present
+    install_recommends: false
+  when: rsd_node_exporter | bool
+
+- name: Enable node_exporter (reachable from rsd_monitoring_server only, see the firewall)
+  ansible.builtin.systemd_service:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started
+  when: rsd_node_exporter | bool
+
+- name: Show the Prometheus scrape configuration
+  ansible.builtin.debug:
+    msg: >-
+      scrape_configs: [{job_name: rsd-master, scheme: https, tls_config: {ca_file: rsd-ca.crt},
+      authorization: {credentials_file: rsd-metrics.token},
+      static_configs: [{targets: ['{{ ansible_host | default(inventory_hostname) }}:{{ rsd_web_port }}']}]}]
+  when: rsd_metrics_token | default('') | length > 0

@@ -1,0 +1,17 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/group_vars/all/vault.example.yml
+# Purpose : Template of the encrypted secrets (cp to vault.yml, then ansible-vault encrypt vault.yml)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# cp group_vars/all/vault.example.yml group_vars/all/vault.yml
+# ansible-vault encrypt group_vars/all/vault.yml     (then run rsd-deploy.sh with -J)
+#
+# Password of the "admin" web account: set at every deployment when it differs, so the default
+# admin/admin never stays in place (10 characters minimum, not "admin").
+rsd_admin_password: "change-me-to-a-long-passphrase"
+# Bearer token of GET https://<master>:8443/metrics (Prometheus); empty = endpoint disabled.
+rsd_metrics_token: ""

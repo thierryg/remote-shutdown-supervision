@@ -1,0 +1,38 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : docker/docker-compose.yml
+# Purpose : Compose deployment of the master on a Linux host (LAN discovery, real client addresses)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Production-like alternative to the .deb package:
+#   docker compose -f docker/docker-compose.yml up -d --build
+#   docker compose -f docker/docker-compose.yml exec master rsd-master info
+# Host networking: the UDP discovery broadcasts of the LAN reach the master, the console sees
+# the real client addresses (login rate limit, audit) and the server certificate covers the
+# host's LAN addresses. Open 8443/tcp, 8444/tcp and 50000/udp on the host firewall.
+# Optional settings: copy packaging/config/master.ini to /etc/rsd-master/master.ini.
+
+name: rsd-master
+
+services:
+  master:
+    build: {context: .., dockerfile: docker/Dockerfile.master}
+    image: rsd-master:${RSD_VERSION:-latest}
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - data:/var/lib/rsd-master
+      - /etc/rsd-master:/etc/rsd-master:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "5"}
+
+volumes:
+  data:   # database, CA and server certificate, session key, backups: back it up encrypted

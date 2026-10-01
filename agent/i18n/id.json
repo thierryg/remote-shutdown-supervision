@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "Komputer ini akan mati dalam {seconds} detik.",
+  "shutdown.cancelled": "Pematian terjadwal telah dibatalkan.",
+  "policy.warning": "Komputer ini akan mati dalam {minutes} menit: batas waktu penggunaan telah tercapai.",
+  "policy.shutdown": "Batas waktu penggunaan tercapai: komputer ini akan mati dalam {seconds} detik.",
+  "chat.from": "Pesan dari {author}",
+  "button.ok": "OK",
+  "button.close": "Tutup",
+  "button.reply": "Balas"
+}

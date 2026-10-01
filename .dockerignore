@@ -1,0 +1,16 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : .dockerignore
+# Purpose : Keep the build context small and free of secrets (only master/, agent/, packaging/, VERSION)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+*
+!VERSION
+!master/rsd_master/
+!agent/
+!packaging/debian/rsd-master.sh
+**/__pycache__
+agent/*_test.go

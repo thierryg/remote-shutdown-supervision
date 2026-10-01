@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "Este equipo se apagará en {seconds} segundos.",
+  "shutdown.cancelled": "Se ha cancelado el apagado programado.",
+  "policy.warning": "Este equipo se apagará en {minutes} minuto(s): se ha alcanzado el tiempo de uso máximo.",
+  "policy.shutdown": "Tiempo de uso máximo alcanzado: este equipo se apagará en {seconds} segundos.",
+  "chat.from": "Mensaje de {author}",
+  "button.ok": "Aceptar",
+  "button.close": "Cerrar",
+  "button.reply": "Responder"
+}

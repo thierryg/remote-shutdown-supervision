@@ -1,0 +1,20 @@
+// =============================================================================
+// Remote Shutdown - LAN parental control and machine management (master/agent)
+// -----------------------------------------------------------------------------
+// File    : deploy/ansible/roles/hardening/templates/52rsd-unattended-upgrades.j2
+// Purpose : Unattended upgrades: security origins of Debian, Ubuntu and Linux Mint
+// Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+// Project : remote-shutdown (version: VERSION)
+// Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+// =============================================================================
+// {{ ansible_managed }} - /etc/apt/apt.conf.d/52rsd-unattended-upgrades
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+        "origin=Debian,codename=${distro_codename},label=Debian";
+        "origin=Ubuntu,archive=${distro_codename}-security";
+        "o=UbuntuESMApps,a=${distro_codename}-apps-security";
+        "o=UbuntuESM,a=${distro_codename}-infra-security";
+};
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Automatic-Reboot "{{ 'true' if rsd_unattended_reboot | bool else 'false' }}";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ rsd_unattended_reboot_time }}";

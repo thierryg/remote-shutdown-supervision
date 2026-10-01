@@ -1,0 +1,13 @@
+// =============================================================================
+// Remote Shutdown - LAN parental control and machine management (master/agent)
+// -----------------------------------------------------------------------------
+// File    : deploy/ansible/roles/hardening/templates/20auto-upgrades.j2
+// Purpose : APT periodic tasks (daily index refresh and unattended upgrade)
+// Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+// Project : remote-shutdown (version: VERSION)
+// Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+// =============================================================================
+// {{ ansible_managed }} - /etc/apt/apt.conf.d/20auto-upgrades
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";

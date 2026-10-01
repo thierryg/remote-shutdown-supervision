@@ -1,0 +1,24 @@
+#!/bin/sh
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : packaging/debian/master/postrm
+# Purpose : Debian postrm: on purge, delete the data (CA, database) and the service account
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+set -e
+
+case "$1" in
+  purge)
+    rm -rf /var/lib/rsd-master /etc/rsd-master
+    if getent passwd rsd-master >/dev/null; then
+      deluser --quiet --system rsd-master >/dev/null 2>&1 || true
+    fi
+    ;;
+esac
+if [ -d /run/systemd/system ]; then
+  systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+exit 0

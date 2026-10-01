@@ -1,0 +1,57 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/base/tasks/main.yml
+# Purpose : Base system: updates, packages, host name, mDNS, time zone and clock
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+- name: Refresh the package index
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Apply the pending updates
+  ansible.builtin.apt:
+    upgrade: dist
+    autoremove: true
+  when: rsd_upgrade_packages | bool
+
+- name: Install the tools used by the roles and the checks
+  ansible.builtin.apt:
+    name: [python3, openssl, curl, ca-certificates, sqlite3, iproute2, jq]
+    state: present
+    install_recommends: false
+
+- name: Install the mDNS responder (<hostname>.local on the LAN)
+  ansible.builtin.apt:
+    name: [avahi-daemon, libnss-mdns]
+    state: present
+    install_recommends: false
+  when: rsd_mdns | bool
+
+- name: Set the host name
+  ansible.builtin.hostname:
+    name: "{{ rsd_hostname }}"
+  when: rsd_hostname | length > 0 and not rsd_in_container
+
+- name: Map the host name to the loopback address
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s'
+    line: "127.0.1.1 {{ rsd_hostname }}.local {{ rsd_hostname }}"
+    unsafe_writes: "{{ rsd_in_container }}"
+  when: rsd_hostname | length > 0
+
+- name: Set the time zone
+  community.general.timezone:
+    name: "{{ rsd_timezone }}"
+
+- name: Keep the clock synchronized (certificates, audit timestamps)
+  ansible.builtin.systemd_service:
+    name: systemd-timesyncd
+    enabled: true
+    state: started
+  failed_when: false
+  when: not rsd_in_container

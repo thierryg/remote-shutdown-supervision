@@ -1,0 +1,15 @@
+Package: rsd-agent
+Version: @VERSION@
+Architecture: @ARCH@
+Maintainer: Thierry Gayet <thierry.gayet@labworks.fr>
+Section: admin
+Priority: optional
+Depends: systemd
+Recommends: zenity | kdialog | libnotify-bin
+Installed-Size: @SIZE@
+Homepage: https://github.com/tgayet/remote-shutdown
+Description: Remote Shutdown agent - remote shutdown, popups and chat
+ Agent of Remote Shutdown. It enrolls once with the master (one-time token and
+ pinned CA fingerprint), then keeps a mutual-TLS connection open to receive
+ shutdown orders with countdown, popup messages and chat messages, and reports
+ its uptime and network interfaces. Static binary, no runtime dependency.

@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "이 컴퓨터는 {seconds}초 후에 종료됩니다.",
+  "shutdown.cancelled": "예약된 종료가 취소되었습니다.",
+  "policy.warning": "이 컴퓨터는 {minutes}분 후에 종료됩니다: 최대 사용 시간에 도달했습니다.",
+  "policy.shutdown": "최대 사용 시간에 도달했습니다: 이 컴퓨터는 {seconds}초 후에 종료됩니다.",
+  "chat.from": "{author}의 메시지",
+  "button.ok": "확인",
+  "button.close": "닫기",
+  "button.reply": "답장"
+}

@@ -1,0 +1,46 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : packaging/systemd/rsd-agent.service
+# Purpose : systemd unit of the Linux agent (root: power off and desktop popups)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+[Unit]
+Description=Remote Shutdown agent
+Documentation=file:///usr/share/doc/rsd-agent/README.md
+After=network-online.target systemd-logind.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Root is required to power the machine off and to open popups in the users' sessions.
+ExecStart=/usr/bin/rsd-agent run
+Restart=always
+RestartSec=5
+StateDirectory=rsd-agent
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/etc/rsd-agent
+ProtectHome=read-only
+# No PrivateTmp: the X11 sockets live in /tmp/.X11-unix.
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+
+# Resource accounting: CPU, memory, I/O, IP traffic.
+CPUAccounting=yes
+MemoryAccounting=yes
+IOAccounting=yes
+IPAccounting=yes
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target

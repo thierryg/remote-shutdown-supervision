@@ -1,0 +1,14 @@
+Package: rsd-master
+Version: @VERSION@
+Architecture: all
+Maintainer: Thierry Gayet <thierry.gayet@labworks.fr>
+Section: admin
+Priority: optional
+Depends: python3 (>= 3.10), python3-fastapi, python3-uvicorn, python3-cryptography (>= 3.4), python3-bcrypt, python3-jwt, adduser, systemd
+Installed-Size: @SIZE@
+Homepage: https://github.com/tgayet/remote-shutdown
+Description: Remote Shutdown master - LAN parental control console
+ Central service of Remote Shutdown: HTTPS web console (machines UP/DOWN,
+ uptime, IP/MAC, shutdown, popup, chat, uptime limits), mutual-TLS agent hub,
+ local certificate authority with automatic agent enrollment, UDP discovery
+ and a hash-chained audit log.

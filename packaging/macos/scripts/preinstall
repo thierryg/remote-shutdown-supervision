@@ -1,0 +1,13 @@
+#!/bin/sh
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : packaging/macos/scripts/preinstall
+# Purpose : pkg preinstall: stop a running agent before the files are replaced
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+LABEL=com.labworks.rsd-agent
+/bin/launchctl bootout "system/$LABEL" >/dev/null 2>&1 || true
+exit 0

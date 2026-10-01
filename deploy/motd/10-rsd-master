@@ -1,0 +1,13 @@
+#!/bin/sh
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/motd/10-rsd-master
+# Purpose : update-motd hook: show the Remote Shutdown dashboard at login (5 s cap)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Installed as /etc/update-motd.d/10-rsd-master; never blocks or fails a login.
+[ -x /usr/local/bin/rsd-motd ] || exit 0
+timeout 5 /usr/local/bin/rsd-motd 2>/dev/null || true

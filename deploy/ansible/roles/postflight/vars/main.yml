@@ -1,0 +1,21 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/postflight/vars/main.yml
+# Purpose : Expectations of the postflight checks
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+postflight_units: >-
+  {{ ['rsd-master.service', 'ssh.service']
+     + (['rsd-master-backup.timer'] if rsd_backup_timer | bool else [])
+     + (['nftables.service'] if rsd_firewall | bool else [])
+     + (['fail2ban.service'] if rsd_fail2ban | bool else []) }}
+postflight_headers:
+  Content-Security-Policy: "default-src 'self'"
+  Strict-Transport-Security: max-age=
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Robots-Tag: noindex

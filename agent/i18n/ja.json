@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "このパソコンは {seconds} 秒後にシャットダウンします。",
+  "shutdown.cancelled": "予定されていたシャットダウンは取り消されました。",
+  "policy.warning": "このパソコンは {minutes} 分後にシャットダウンします：最大使用時間に達しました。",
+  "policy.shutdown": "最大使用時間に達しました：このパソコンは {seconds} 秒後にシャットダウンします。",
+  "chat.from": "{author} からのメッセージ",
+  "button.ok": "OK",
+  "button.close": "閉じる",
+  "button.reply": "返信"
+}

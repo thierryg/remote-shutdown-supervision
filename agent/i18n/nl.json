@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "Deze computer wordt over {seconds} seconden afgesloten.",
+  "shutdown.cancelled": "De geplande afsluiting is geannuleerd.",
+  "policy.warning": "Deze computer wordt over {minutes} minuut/minuten afgesloten: de maximale gebruikstijd is bereikt.",
+  "policy.shutdown": "Maximale gebruikstijd bereikt: deze computer wordt over {seconds} seconden afgesloten.",
+  "chat.from": "Bericht van {author}",
+  "button.ok": "OK",
+  "button.close": "Sluiten",
+  "button.reply": "Antwoorden"
+}

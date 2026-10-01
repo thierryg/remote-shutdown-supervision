@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "Cet ordinateur va s'éteindre dans {seconds} secondes.",
+  "shutdown.cancelled": "L'arrêt programmé a été annulé.",
+  "policy.warning": "Cet ordinateur va s'éteindre dans {minutes} minute(s) : la durée d'utilisation maximale est atteinte.",
+  "policy.shutdown": "Durée d'utilisation maximale atteinte : cet ordinateur va s'éteindre dans {seconds} secondes.",
+  "chat.from": "Message de {author}",
+  "button.ok": "OK",
+  "button.close": "Fermer",
+  "button.reply": "Répondre"
+}

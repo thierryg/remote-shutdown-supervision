@@ -1,0 +1,21 @@
+#!/bin/sh
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : packaging/debian/agent/postrm
+# Purpose : Debian postrm: on purge, delete the agent key, certificates and configuration
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+set -e
+
+case "$1" in
+  purge)
+    rm -rf /var/lib/rsd-agent /etc/rsd-agent
+    ;;
+esac
+if [ -d /run/systemd/system ]; then
+  systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+exit 0

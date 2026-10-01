@@ -1,0 +1,28 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/inventory/hosts.example.yml
+# Purpose : Example inventory of the master host
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# cp inventory/hosts.example.yml inventory/hosts.yml   (hosts.yml is not versioned)
+#
+# ansible_host : address of the machine that will run the master (Debian 12+, Ubuntu 22.04+,
+#                Linux Mint 21+, freshly installed or not).
+# ansible_user : an administrator account that accepts your SSH key (ssh-copy-id) and may sudo.
+# The web administrator password comes from group_vars/all/vault.yml (rsd_admin_password).
+all:
+  children:
+    rsd_master:
+      hosts:
+        rsd-master-01:
+          ansible_host: 192.168.1.10
+          ansible_user: admin
+          # Names and addresses of the server certificate (browsers check them).
+          rsd_tls_extra_names: [rsd-master.home.arpa, 192.168.1.10]
+          # Networks allowed to reach the console, the agent port and the discovery port.
+          # rsd_lan_networks: ["192.168.1.0/24"]
+          # Networks allowed to open SSH sessions (defaults to rsd_lan_networks).
+          # rsd_admin_networks: ["192.168.1.0/24"]

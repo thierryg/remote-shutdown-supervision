@@ -1,0 +1,12 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : .shellcheckrc
+# Purpose : ShellCheck settings: follow the sourced shared library (scripts/lib/rsd-common.sh)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Resolve "source" paths relative to the script being checked, and follow them.
+source-path=SCRIPTDIR
+external-sources=true

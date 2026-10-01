@@ -1,0 +1,32 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/motd/tasks/main.yml
+# Purpose : SSH MOTD: Remote Shutdown dashboard after login (pam_motd hook)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+- name: Install the dashboard command
+  ansible.builtin.copy:
+    src: "{{ rsd_repo_root }}/deploy/motd/rsd-motd"
+    dest: /usr/local/bin/rsd-motd
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create the update-motd directory
+  ansible.builtin.file:
+    path: /etc/update-motd.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the pam_motd hook
+  ansible.builtin.copy:
+    src: "{{ rsd_repo_root }}/deploy/motd/10-rsd-master"
+    dest: /etc/update-motd.d/10-rsd-master
+    owner: root
+    group: root
+    mode: "0755"

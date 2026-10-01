@@ -1,0 +1,212 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : .github/workflows/ci.yml
+# Purpose : CI and release pipeline: lint, SAST, secrets, tests, deb / msi / pkg packages
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-go@v5
+        with:
+          # Latest stable Go (security fixes of the standard library are linked into the agent);
+          # agent/go.mod only states the minimum version.
+          go-version: stable
+          check-latest: true
+      - run: make lint sast shellcheck go-vet
+
+  ansible-lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: make deploy-lint
+
+  sca:
+    # Known vulnerabilities in the Python dependencies and in the Go agent.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-go@v5
+        with:
+          # Latest stable Go (security fixes of the standard library are linked into the agent);
+          # agent/go.mod only states the minimum version.
+          go-version: stable
+          check-latest: true
+      - run: make audit
+
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: make venv test
+
+  test-oldest:
+    # Pinned versions of Ubuntu 22.04 / Linux Mint 21 (Python 3.10 installed by uv).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: make venv-oldest test-oldest
+
+  test-distro:
+    # The master suite inside each supported distribution, on its own apt packages only
+    # (Ubuntu 26.04 LTS and Debian 13 are the reference platforms).
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:26.04", "debian:13", "ubuntu:24.04", "debian:12", "ubuntu:22.04"]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/rsd-test-distro.sh --image ${{ matrix.image }}
+
+  go-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Latest stable Go (security fixes of the standard library are linked into the agent);
+          # agent/go.mod only states the minimum version.
+          go-version: stable
+          check-latest: true
+      - working-directory: agent
+        run: go test -count=1 ./...
+
+  linux-packages:
+    needs: [lint, test, test-oldest, test-distro, go-test]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Latest stable Go (security fixes of the standard library are linked into the agent);
+          # agent/go.mod only states the minimum version.
+          go-version: stable
+          check-latest: true
+      # The same entry points as on a workstation: make deps, then make build.
+      - run: ./scripts/rsd-install-deps.sh --no-go --yes
+      - run: make build
+      - run: >-
+          ./scripts/rsd-test-deb.sh --image ubuntu:26.04 --image debian:13 --image ubuntu:24.04
+          --image debian:12 --image ubuntu:22.04
+      - run: make test-rpm
+      - run: make test-rpm RSD_RPM_MASTER_IMAGE=opensuse/leap:latest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-windows-packages
+          path: |
+            dist/*.deb
+            dist/*.rpm
+            dist/*.msi
+            dist/*.exe
+
+  ansible-deploy:
+    # Full playbook (twice: idempotence) against systemd containers over SSH.
+    needs: [ansible-lint, linux-packages]
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:26.04", "debian:13", "ubuntu:24.04", "debian:12"]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-windows-packages
+          path: dist
+      - run: make deploy-test IMAGE=${{ matrix.image }}
+
+  docker:
+    # Local test stack (master + 2 simulated agents) and a vulnerability scan of the images.
+    needs: [lint, test]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./docker/rsd-start.sh
+      - run: ./docker/rsd-status.sh --logs 20
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          image-ref: rsd-master:local
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - run: ./docker/rsd-clean.sh --purge --yes
+
+  macos-package:
+    needs: [lint, go-test]
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Latest stable Go (security fixes of the standard library are linked into the agent);
+          # agent/go.mod only states the minimum version.
+          go-version: stable
+          check-latest: true
+      # The scripts need bash >= 4.4 (macOS ships 3.2): Homebrew bash first.
+      - run: brew install bash
+      - run: ./scripts/rsd-install-deps.sh --no-go --yes
+      - run: make macosx-pkg
+        env:
+          DEVELOPER_ID_APP: ${{ secrets.DEVELOPER_ID_APP }}
+          DEVELOPER_ID_INSTALLER: ${{ secrets.DEVELOPER_ID_INSTALLER }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-package
+          path: dist/*.pkg
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux-packages, macos-package]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: cd dist && sha256sum -- * > SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

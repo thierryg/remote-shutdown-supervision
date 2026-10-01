@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+=============================================================================
+Remote Shutdown - LAN parental control and machine management (master/agent)
+=============================================================================
+File    : packaging/windows/rsd-agent.wxs
+Purpose : MSI of the Windows agent (WiX 3 schema, built with wixl): service + registry settings
+Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+Project : remote-shutdown (version: VERSION)
+Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+=============================================================================
+Public properties (msiexec /i rsd-agent-X.Y.Z-x64.msi /qn MASTER=... ENROLL_TOKEN=... CA_FINGERPRINT=...):
+  MASTER          master HOST or HOST:PORT (empty: LAN discovery)
+  ENROLL_TOKEN    one-time enrollment token (deleted from the registry once used)
+  CA_FINGERPRINT  SHA-256 fingerprint of the master CA (pinned at enrollment)
+The UpgradeCode never changes: a newer MSI replaces the installed version.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Remote Shutdown Agent" Language="1033" Version="$(var.Version)"
+           Manufacturer="Thierry Gayet" UpgradeCode="6E8F2C1A-4B7D-4E39-9A51-3C2D7F0B8E14">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine"
+             Description="Remote Shutdown agent (remote shutdown, popups, chat)" Manufacturer="Thierry Gayet"/>
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Remote Shutdown Agent is already installed."/>
+    <Media Id="1" Cabinet="agent.cab" EmbedCab="yes"/>
+
+    <!-- The token is kept out of the MSI logs. wixl has no Secure/Hidden attributes: this
+         property hides it, and scripts/rsd-build-msi.sh appends MASTER, ENROLL_TOKEN and
+         CA_FINGERPRINT to SecureCustomProperties (passed from an elevated UI session). -->
+    <Property Id="MsiHiddenProperties" Value="ENROLL_TOKEN"/>
+    <Property Id="ARPCONTACT" Value="Thierry Gayet &lt;thierry.gayet@labworks.fr&gt;"/>
+    <Property Id="ARPNOMODIFY" Value="1"/>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="rsd-agent">
+          <Component Id="AgentService" Guid="9C3B5A2E-1F6D-4C8B-8E07-5A4D2B1C9F36" Win64="yes">
+            <File Id="AgentExe" Name="rsd-agent.exe" Source="$(var.Binary)" KeyPath="yes"/>
+            <File Id="License" Name="LICENSE.txt" Source="$(var.License)"/>
+            <ServiceInstall Id="AgentServiceInstall" Name="rsd-agent" DisplayName="Remote Shutdown Agent"
+                            Description="Receives the shutdown, popup and chat orders of the Remote Shutdown master."
+                            Type="ownProcess" Start="auto" ErrorControl="normal" Account="LocalSystem" Arguments="run"/>
+            <ServiceControl Id="AgentServiceControl" Name="rsd-agent" Start="install" Stop="both" Remove="uninstall" Wait="yes"/>
+          </Component>
+          <Component Id="AgentSettings" Guid="2D7E4F91-8A3C-4B6E-9D15-7F0C3A2B6E48" Win64="yes">
+            <RegistryKey Root="HKLM" Key="SOFTWARE\rsd-agent">
+              <RegistryValue Name="Master" Type="string" Value="[MASTER]" KeyPath="yes"/>
+              <RegistryValue Name="EnrollToken" Type="string" Value="[ENROLL_TOKEN]"/>
+              <RegistryValue Name="CAFingerprint" Type="string" Value="[CA_FINGERPRINT]"/>
+            </RegistryKey>
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <Feature Id="Agent" Title="Remote Shutdown Agent" Level="1">
+      <ComponentRef Id="AgentService"/>
+      <ComponentRef Id="AgentSettings"/>
+    </Feature>
+  </Product>
+</Wix>

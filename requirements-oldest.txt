@@ -1,0 +1,19 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : requirements-oldest.txt
+# Purpose : Versions packaged by Ubuntu 22.04 / Linux Mint 21 (oldest supported master target)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Used with Python 3.10 by "make test-oldest" and the CI job of the same name.
+fastapi==0.63.0
+starlette==0.13.6
+pydantic==1.8.2
+uvicorn==0.15.0
+cryptography==3.4.8
+bcrypt==3.2.0
+PyJWT==2.3.0
+requests>=2.25
+pytest>=7

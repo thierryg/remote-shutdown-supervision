@@ -1,0 +1,80 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/ssh/tasks/main.yml
+# Purpose : OpenSSH hardening: keys only, modern algorithms, pre-login legal banner
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+- name: Install the pre-login legal banner (SSH and local terminals)
+  ansible.builtin.copy:
+    src: "{{ rsd_repo_root }}/deploy/motd/issue.net"
+    dest: "{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [/etc/issue.net, /etc/issue]
+
+- name: Add the administrator public keys
+  ansible.posix.authorized_key:
+    user: "{{ rsd_admin_user }}"
+    key: "{{ item }}"
+    state: present
+  loop: "{{ rsd_ssh_authorized_keys }}"
+  loop_control:
+    label: "{{ item | truncate(40) }}"
+
+- name: List the key exchange, cipher and MAC algorithms of this OpenSSH
+  ansible.builtin.command: "ssh -Q {{ item }}"
+  loop: [kex, cipher, mac]
+  register: ssh_algorithms
+  changed_when: false
+
+- name: Select the modern algorithms
+  ansible.builtin.set_fact:
+    ssh_kex: "{{ ssh_preferred_kex | select('in', ssh_algorithms.results[0].stdout_lines) | list }}"
+    ssh_ciphers: "{{ ssh_preferred_ciphers | select('in', ssh_algorithms.results[1].stdout_lines) | list }}"
+    ssh_macs: "{{ ssh_preferred_macs | select('in', ssh_algorithms.results[2].stdout_lines) | list }}"
+
+- name: Ensure the privilege separation directory exists (sshd -t)
+  ansible.builtin.file:
+    path: /run/sshd
+    state: directory
+    mode: "0755"
+
+# "01-" sorts before cloud-init's 50-cloud-init.conf: with sshd, the first value wins.
+- name: Install the sshd hardening drop-in, rolled back if the full configuration is invalid
+  block:
+    - name: Write /etc/ssh/sshd_config.d/01-rsd-hardening.conf
+      ansible.builtin.template:
+        src: 01-rsd-hardening.conf.j2
+        dest: /etc/ssh/sshd_config.d/01-rsd-hardening.conf
+        owner: root
+        group: root
+        mode: "0600"
+        backup: true
+      register: ssh_dropin
+      notify: Restart ssh
+
+    - name: Validate the complete sshd configuration
+      ansible.builtin.command: /usr/sbin/sshd -t
+      changed_when: false
+  rescue:
+    - name: Restore the previous drop-in
+      ansible.builtin.copy:
+        src: "{{ ssh_dropin.backup_file }}"
+        dest: /etc/ssh/sshd_config.d/01-rsd-hardening.conf
+        remote_src: true
+        mode: "0600"
+      when: ssh_dropin.backup_file is defined
+
+    - name: Remove the invalid drop-in (no previous version)
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d/01-rsd-hardening.conf
+        state: absent
+      when: ssh_dropin.backup_file is not defined
+
+    - name: Stop on the invalid sshd configuration
+      ansible.builtin.fail:
+        msg: "sshd -t rejected the hardened configuration; the previous one was restored and sshd was not restarted."

@@ -1,0 +1,70 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : docker/docker-compose.local.yml
+# Purpose : Self-contained Compose project to try Remote Shutdown on a workstation (master + 2 simulated agents)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Driven by docker/rsd-start.sh, rsd-status.sh, rsd-stop.sh and rsd-clean.sh (project "rsd-local").
+# Generated in docker/.local/ (ignored by git): agents.env (enrollment token and CA fingerprint
+# created by rsd-start.sh) and rsd-local-ca.crt (CA to trust in the browser).
+# Only 127.0.0.1 is published: https://localhost:${RSD_HTTPS_PORT:-8443}/ and the agent port
+# ${RSD_AGENT_PORT:-8444} (a locally built agent can join with --master 127.0.0.1).
+# The two agents find the master by UDP broadcast on the project network, enroll with the token,
+# and log the shutdown orders instead of executing them (dry run).
+
+name: rsd-local
+
+services:
+  master:
+    build: {context: .., dockerfile: docker/Dockerfile.master}
+    image: rsd-master:local
+    hostname: master
+    restart: unless-stopped
+    environment:
+      RSD__SERVER__TLS_EXTRA_NAMES: "master,localhost"
+      RSD__LOG__LOG_JSON: "false"
+    ports:
+      - "127.0.0.1:${RSD_HTTPS_PORT:-8443}:8443"
+      - "127.0.0.1:${RSD_AGENT_PORT:-8444}:8444"
+    volumes:
+      - master-data:/var/lib/rsd-master
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging: &logging
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  # Simulated machines (no volume on purpose: rsd-stop.sh keeps the containers, so their
+  # certificates survive a stop/start; rsd-clean.sh forgets them together with the master data).
+  kid-laptop: &agent
+    build: {context: .., dockerfile: docker/Dockerfile.agent}
+    image: rsd-agent:local
+    hostname: kid-laptop
+    restart: unless-stopped
+    env_file:
+      - {path: .local/agents.env, required: false}
+    depends_on:
+      master: {condition: service_healthy}
+    # Not read-only: the key and certificates are written in /var/lib/rsd-agent.
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+  living-room-pc:
+    <<: *agent
+    hostname: living-room-pc
+
+# Network created by rsd-start.sh (Docker default pools, a free /24 when they are exhausted,
+# or RSD_DOCKER_SUBNET), removed by rsd-clean.sh.
+networks:
+  default:
+    name: rsd-local-net
+    external: true
+
+volumes:
+  master-data:   # database, CA, session key (kept by rsd-stop.sh, removed by rsd-clean.sh --volumes)

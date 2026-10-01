@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<!--
+=============================================================================
+Remote Shutdown - LAN parental control and machine management (master/agent)
+=============================================================================
+File    : master/rsd_master/static/index.html
+Purpose : Web console shell (login, machines, enrollment, settings, audit); CSP-safe markup
+Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+Project : remote-shutdown (version: VERSION)
+Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+=============================================================================
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>Remote Shutdown</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/static/favicon.svg" alt="" class="logo"><span>Remote Shutdown</span></div>
+    <nav id="nav" class="nav hidden">
+      <button type="button" class="tab active" data-page="machines" data-i18n="nav.machines">Machines</button>
+      <button type="button" class="tab" data-page="enroll" data-i18n="nav.enroll">Enrollment</button>
+      <button type="button" class="tab" data-page="settings" data-i18n="nav.settings">Settings</button>
+      <button type="button" class="tab" data-page="audit" data-i18n="nav.audit">Audit</button>
+    </nav>
+    <div class="right">
+      <select id="lang" aria-label="Language"></select>
+      <span id="whoami" class="muted"></span>
+      <button type="button" id="logout" class="ghost hidden" data-i18n="nav.logout">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="toast" class="toast hidden" role="status"></div>
+
+    <!-- Login -->
+    <section id="page-login" class="page card narrow hidden">
+      <h1 data-i18n="login.title">Sign in</h1>
+      <form id="login-form">
+        <label><span data-i18n="login.username">Username</span><input name="username" autocomplete="username" required></label>
+        <label><span data-i18n="login.password">Password</span><input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="primary" data-i18n="login.submit">Sign in</button>
+      </form>
+    </section>
+
+    <!-- Forced or voluntary password change -->
+    <section id="page-password" class="page card narrow hidden">
+      <h1 data-i18n="password.title">Change the password</h1>
+      <p id="password-forced" class="notice" data-i18n="password.forced">The default password must be changed before you continue.</p>
+      <form id="password-form">
+        <label><span data-i18n="password.current">Current password</span><input name="current" type="password" autocomplete="current-password" required></label>
+        <label><span data-i18n="password.new">New password (10 characters minimum)</span><input name="new" type="password" autocomplete="new-password" minlength="10" required></label>
+        <label><span data-i18n="password.repeat">Repeat the new password</span><input name="repeat" type="password" autocomplete="new-password" minlength="10" required></label>
+        <button type="submit" class="primary" data-i18n="password.submit">Change</button>
+      </form>
+    </section>
+
+    <!-- Machines -->
+    <section id="page-machines" class="page hidden">
+      <div class="toolbar">
+        <h1 data-i18n="machines.title">Machines</h1>
+        <span id="machines-summary" class="muted"></span>
+        <span class="spacer"></span>
+        <button type="button" id="shutdown-all" class="danger" data-i18n="machines.shutdown_all">Shut down all</button>
+      </div>
+      <div class="card table-wrap">
+        <table class="grid">
+          <thead><tr>
+            <th data-i18n="machines.name">Name</th>
+            <th data-i18n="machines.status">Status</th>
+            <th data-i18n="machines.uptime">Uptime</th>
+            <th data-i18n="machines.limit">Limit</th>
+            <th data-i18n="machines.network">IP / MAC</th>
+            <th data-i18n="machines.system">System</th>
+            <th data-i18n="machines.actions">Actions</th>
+          </tr></thead>
+          <tbody id="machines-body"></tbody>
+        </table>
+        <p id="machines-empty" class="empty hidden" data-i18n="machines.empty">No machine yet: create an enrollment token in the Enrollment tab and install the agent.</p>
+      </div>
+    </section>
+
+    <!-- Enrollment -->
+    <section id="page-enroll" class="page hidden">
+      <h1 data-i18n="enroll.title">Enroll a machine</h1>
+      <div class="card">
+        <p data-i18n="enroll.intro">Create a token, install the agent package on the machine, then run the command shown below as administrator. A token can only be used for the number of machines and the time chosen.</p>
+        <form id="token-form" class="inline-form">
+          <label><span data-i18n="enroll.label">Label</span><input name="label" maxlength="64"></label>
+          <label><span data-i18n="enroll.ttl">Valid for (minutes)</span><input name="ttl_minutes" type="number" min="5" max="10080" value="60" required></label>
+          <label><span data-i18n="enroll.uses">Machines</span><input name="uses" type="number" min="1" max="100" value="1" required></label>
+          <button type="submit" class="primary" data-i18n="enroll.create">Create a token</button>
+        </form>
+        <div id="token-result" class="hidden">
+          <p class="notice" data-i18n="enroll.once">Copy the token now: it is shown only once.</p>
+          <dl class="kv">
+            <dt data-i18n="enroll.token">Token</dt><dd><code id="token-value"></code></dd>
+          </dl>
+          <h2 data-i18n="enroll.commands">Installation commands</h2>
+          <h3>Linux (Debian, Ubuntu, Mint)</h3><pre id="cmd-linux"></pre>
+          <h3>Linux (Fedora, RHEL, Rocky, openSUSE)</h3><pre id="cmd-linux-rpm"></pre>
+          <h3>macOS</h3><pre id="cmd-macos"></pre>
+          <h3>Windows</h3><pre id="cmd-windows"></pre>
+        </div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="enroll.active">Active tokens</h2>
+        <table class="grid">
+          <thead><tr><th data-i18n="enroll.label">Label</th><th data-i18n="enroll.expires">Expires</th><th data-i18n="enroll.uses_left">Uses left</th><th></th></tr></thead>
+          <tbody id="tokens-body"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2 data-i18n="enroll.ca">Certificate authority</h2>
+        <dl class="kv">
+          <dt data-i18n="enroll.fingerprint">SHA-256 fingerprint</dt><dd><code id="ca-fingerprint"></code></dd>
+          <dt data-i18n="enroll.addresses">Master addresses</dt><dd id="master-addresses"></dd>
+        </dl>
+        <p><a href="/ca.crt" download data-i18n="enroll.download_ca">Download the CA certificate</a> · <span class="muted" data-i18n="enroll.ca_hint">import it in your browser to remove the security warning.</span></p>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section id="page-settings" class="page hidden">
+      <h1 data-i18n="settings.title">Settings</h1>
+      <form id="settings-form" class="card">
+        <fieldset>
+          <legend data-i18n="settings.default_limit">Default maximum uptime</legend>
+          <p class="muted" data-i18n="settings.default_limit_help">Applies to the machines set to "inherit". 0 everywhere means unlimited. Uptime restarts at every boot and after sleep.</p>
+          <div class="dhm">
+            <label><span data-i18n="unit.days">Days</span><input name="d" type="number" min="0" max="99" value="0"></label>
+            <label><span data-i18n="unit.hours">Hours</span><input name="h" type="number" min="0" max="23" value="0"></label>
+            <label><span data-i18n="unit.minutes">Minutes</span><input name="m" type="number" min="0" max="59" value="0"></label>
+          </div>
+        </fieldset>
+        <label><span data-i18n="settings.warning">Warning before the limit (minutes)</span><input name="warning_minutes" type="number" min="0" max="120"></label>
+        <label><span data-i18n="settings.delay">Shutdown countdown (seconds)</span><input name="shutdown_delay_seconds" type="number" min="0" max="3600"></label>
+        <button type="submit" class="primary" data-i18n="common.save">Save</button>
+      </form>
+      <div class="card">
+        <h2 data-i18n="settings.account">Account</h2>
+        <button type="button" id="open-password" data-i18n="password.title">Change the password</button>
+      </div>
+    </section>
+
+    <!-- Audit -->
+    <section id="page-audit" class="page hidden">
+      <div class="toolbar">
+        <h1 data-i18n="audit.title">Audit log</h1>
+        <span id="audit-chain" class="badge"></span>
+      </div>
+      <div class="card table-wrap">
+        <table class="grid">
+          <thead><tr><th data-i18n="audit.date">Date</th><th data-i18n="audit.actor">Actor</th><th data-i18n="audit.action">Action</th><th data-i18n="audit.target">Target</th><th data-i18n="audit.details">Details</th></tr></thead>
+          <tbody id="audit-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Dialogs -->
+  <dialog id="dlg-shutdown">
+    <form method="dialog" id="shutdown-form">
+      <h2 id="shutdown-title"></h2>
+      <label><span data-i18n="shutdown.delay">Countdown (seconds)</span><input name="delay" type="number" min="0" max="3600" required></label>
+      <label><span data-i18n="shutdown.message">Message shown to the user</span><input name="message" maxlength="500"></label>
+      <label class="check"><input name="force" type="checkbox"><span data-i18n="shutdown.force">Force (close the applications without asking)</span></label>
+      <div class="buttons"><button value="cancel" formnovalidate data-i18n="common.cancel">Cancel</button><button value="ok" class="danger" data-i18n="shutdown.submit">Shut down</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-message">
+    <form method="dialog" id="message-form">
+      <h2 data-i18n="message.title">Popup message</h2>
+      <label><span data-i18n="message.text">Text</span><textarea name="text" maxlength="1000" rows="4" required></textarea></label>
+      <div class="buttons"><button value="cancel" formnovalidate data-i18n="common.cancel">Cancel</button><button value="ok" class="primary" data-i18n="message.send">Send</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-chat" class="wide">
+    <form method="dialog" id="chat-form">
+      <h2 id="chat-title"></h2>
+      <div id="chat-log" class="chat-log"></div>
+      <p class="muted" id="chat-windows-note" data-i18n="chat.windows_note">Windows machines show the message but cannot answer.</p>
+      <div class="chat-input"><input name="text" maxlength="1000" autocomplete="off"><button value="send" class="primary" data-i18n="message.send">Send</button></div>
+      <div class="buttons"><button value="cancel" formnovalidate data-i18n="common.close">Close</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-edit">
+    <form method="dialog" id="edit-form">
+      <h2 data-i18n="edit.title">Machine settings</h2>
+      <label><span data-i18n="machines.name">Name</span><input name="display_name" maxlength="64"></label>
+      <label><span data-i18n="edit.limit_mode">Maximum uptime</span>
+        <select name="limit_mode">
+          <option value="inherit" data-i18n="limit.inherit">Default setting</option>
+          <option value="custom" data-i18n="limit.custom">Custom</option>
+          <option value="unlimited" data-i18n="limit.unlimited">Unlimited (override)</option>
+        </select>
+      </label>
+      <div class="dhm" id="edit-dhm">
+        <label><span data-i18n="unit.days">Days</span><input name="d" type="number" min="0" max="99" value="0"></label>
+        <label><span data-i18n="unit.hours">Hours</span><input name="h" type="number" min="0" max="23" value="0"></label>
+        <label><span data-i18n="unit.minutes">Minutes</span><input name="m" type="number" min="0" max="59" value="0"></label>
+      </div>
+      <div class="buttons">
+        <button value="delete" formnovalidate class="danger left" data-i18n="edit.delete">Remove the machine</button>
+        <button value="cancel" formnovalidate data-i18n="common.cancel">Cancel</button><button value="ok" class="primary" data-i18n="common.save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-confirm">
+    <form method="dialog">
+      <p id="confirm-text"></p>
+      <div class="buttons"><button value="cancel" data-i18n="common.cancel">Cancel</button><button value="ok" class="danger" data-i18n="common.confirm">Confirm</button></div>
+    </form>
+  </dialog>
+
+  <footer class="footer muted"><span>Remote Shutdown</span> <span id="version"></span></footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

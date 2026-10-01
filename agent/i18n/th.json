@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "คอมพิวเตอร์เครื่องนี้จะปิดใน {seconds} วินาที",
+  "shutdown.cancelled": "ยกเลิกการปิดเครื่องตามกำหนดแล้ว",
+  "policy.warning": "คอมพิวเตอร์เครื่องนี้จะปิดใน {minutes} นาที: ถึงเวลาใช้งานสูงสุดแล้ว",
+  "policy.shutdown": "ถึงเวลาใช้งานสูงสุดแล้ว: คอมพิวเตอร์เครื่องนี้จะปิดใน {seconds} วินาที",
+  "chat.from": "ข้อความจาก {author}",
+  "button.ok": "ตกลง",
+  "button.close": "ปิด",
+  "button.reply": "ตอบกลับ"
+}

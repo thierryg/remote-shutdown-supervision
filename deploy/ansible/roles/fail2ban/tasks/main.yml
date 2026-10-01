@@ -1,0 +1,37 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/fail2ban/tasks/main.yml
+# Purpose : fail2ban: SSH, console login brute force, invalid enrollment tokens, repeat offenders
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+- name: Install fail2ban (with the systemd journal backend)
+  ansible.builtin.apt:
+    name: [fail2ban, python3-systemd]
+    state: present
+
+- name: Install the Remote Shutdown filter
+  ansible.builtin.template:
+    src: rsd-master.conf.j2
+    dest: /etc/fail2ban/filter.d/rsd-master.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Install the jails
+  ansible.builtin.template:
+    src: rsd.local.j2
+    dest: /etc/fail2ban/jail.d/rsd.local
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Enable and start fail2ban
+  ansible.builtin.systemd_service:
+    name: fail2ban
+    enabled: true
+    state: started

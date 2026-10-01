@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/motd/rsd-motd
+# Purpose : Login dashboard of the master host: service, agents, tokens, audit, backups, firewall
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+#
+# Installed as /usr/local/bin/rsd-motd by the Ansible "motd" role and run at every SSH login
+# by /etc/update-motd.d/10-rsd-master (pam_motd, as root). Can also be run by hand.
+# Self-contained (no shared library: it is installed alone), never fails a login: every probe
+# has a timeout and an error only prints "unknown".
+#
+# Usage:
+#   rsd-motd [--no-color] [--help]
+#
+# Environment variables: NO_COLOR disables the colors.
+#
+# Prerequisites: bash, systemd, rsd-master; optional nft, fail2ban-client.
+#
+# Exit codes:
+#   0  always (a dashboard must never block a login)
+#   2  usage error
+set -uo pipefail
+
+# usage: print the help text (the header comment block).
+usage() { sed -n '/^# Usage:/,/^# Prerequisites:/p' "${BASH_SOURCE[0]}" | sed -e 's/^# \{0,1\}//' -e '$d'; }
+
+# setup_colors: ANSI colors unless disabled or not a terminal.
+setup_colors() {
+  if [[ -n "${NO_COLOR:-}" || "${1:-}" == never ]]; then
+    B="" G="" R="" Y="" C="" D="" N=""
+  else
+    B=$'\e[1m' G=$'\e[32m' R=$'\e[31m' Y=$'\e[33m' C=$'\e[36m' D=$'\e[2m' N=$'\e[0m'
+  fi
+}
+
+# row LABEL VALUE: aligned dashboard line.
+row() { printf '  %s%-14s%s %s\n' "$D" "$1" "$N" "$2"; }
+
+# probe CMD...: output of a command run with a 3 s timeout ("unknown" when it prints nothing).
+probe() {
+  local out
+  out="$(timeout 3 "$@" 2>/dev/null)"
+  echo "${out:-unknown}"
+}
+
+# main ARGS...: collect and print.
+main() {
+  local mode=auto
+  case "${1:-}" in
+    --no-color) mode=never ;;
+    -h | --help) usage; exit 0 ;;
+    "") ;;
+    *) echo "rsd-motd: unknown option: $1" >&2; exit 2 ;;
+  esac
+  setup_colors "$mode"
+  local state status version ip port backups last
+  state="$(probe systemctl is-active rsd-master)"
+  version="$(probe rsd-master version)"
+  status="$(probe rsd-master status)"
+  ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  port="$(probe rsd-master info | sed -n 's/^ *"web_port": \([0-9]*\).*/\1/p')"
+  backups="$(find /var/lib/rsd-master/backups -name 'rsd-master-*.tar.gz' 2>/dev/null | wc -l)"
+  last="$(find /var/lib/rsd-master/backups -name 'rsd-master-*.tar.gz' -printf '%TY-%Tm-%Td %TH:%TM\n' 2>/dev/null | sort | tail -1)"
+  printf '\n%s%sRemote Shutdown master%s %s%s%s\n' "$B" "$C" "$N" "$D" "$version" "$N"
+  case "$state" in
+    active) row "service" "${G}running${N}" ;;
+    *) row "service" "${R}${state}${N}  (journalctl -u rsd-master -n 50)" ;;
+  esac
+  row "console" "https://${ip:-<this-host>}:${port:-8443}/"
+  local agents up total
+  agents="$(head -1 <<<"$status" | sed -n 's/.*: \([0-9]*\/[0-9]*\) agents UP.*/\1/p')"
+  up="${agents%/*}" total="${agents#*/}"
+  if [[ -z "$agents" ]]; then row "agents" "unknown"
+  elif [[ "$up" == "$total" ]]; then row "agents" "${G}${up}/${total} UP${N}"
+  else row "agents" "${Y}${up}/${total} UP${N}"
+  fi
+  if [[ "$status" == unknown ]]; then row "audit chain" "unknown"
+  elif [[ "$status" == *"BROKEN"* ]]; then row "audit chain" "${R}BROKEN${N} (rsd-master verify-audit)"
+  else row "audit chain" "${G}intact${N}"
+  fi
+  row "backups" "${backups} archive(s)${last:+, last $last}"
+  if command -v nft >/dev/null 2>&1; then
+    local dropped
+    dropped="$(timeout 3 nft list table inet rsd_filter 2>/dev/null | sed -n 's/.*counter packets \([0-9]*\).*rsd dropped.*/\1/p')"
+    row "firewall" "${dropped:-?} packet(s) dropped since boot"
+  fi
+  if command -v fail2ban-client >/dev/null 2>&1; then
+    local banned
+    banned="$(timeout 3 fail2ban-client status rsd-master 2>/dev/null | sed -n 's/.*Currently banned:[[:space:]]*\([0-9]*\).*/\1/p')"
+    row "fail2ban" "${banned:-?} address(es) banned (console)"
+  fi
+  printf '  %sCLI: rsd-master status | info | create-token | backup | verify-audit%s\n\n' "$D" "$N"
+  return 0
+}
+
+main "$@"

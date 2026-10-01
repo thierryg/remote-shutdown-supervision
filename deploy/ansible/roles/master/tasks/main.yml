@@ -1,0 +1,152 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/master/tasks/main.yml
+# Purpose : Install and configure the master: .deb, master.ini, admin password, metrics token, backups, CA
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# --- package (built on the controller when missing) ---------------------------------------
+- name: Look for the master package on the controller
+  ansible.builtin.stat:
+    path: "{{ rsd_master_deb }}"
+  register: master_deb
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Build the master package on the controller (scripts/rsd-build-deb.sh --master)
+  ansible.builtin.command:
+    argv: ["{{ rsd_repo_root }}/scripts/rsd-build-deb.sh", "--master", "--no-color"]
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: true
+  when: not master_deb.stat.exists
+
+- name: Create the package cache directory
+  ansible.builtin.file:
+    path: /var/cache/rsd-master
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Copy the package to the target
+  ansible.builtin.copy:
+    src: "{{ rsd_master_deb }}"
+    dest: "/var/cache/rsd-master/{{ rsd_master_deb | basename }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install the package and its distribution dependencies
+  ansible.builtin.apt:
+    deb: "/var/cache/rsd-master/{{ rsd_master_deb | basename }}"
+  notify: Restart rsd-master
+
+# --- configuration -------------------------------------------------------------------------
+- name: Write /etc/rsd-master/master.ini
+  ansible.builtin.template:
+    src: master.ini.j2
+    dest: /etc/rsd-master/master.ini
+    owner: root
+    group: rsd-master
+    mode: "0640"
+  notify: Restart rsd-master
+
+- name: Install the metrics bearer token (vault.yml rsd_metrics_token)
+  ansible.builtin.copy:
+    content: "{{ rsd_metrics_token }}\n"
+    dest: "{{ rsd_metrics_token_file }}"
+    owner: root
+    group: rsd-master
+    mode: "0640"
+  no_log: true
+  when: rsd_metrics_token | default('') | length > 0
+
+- name: Remove the metrics token (metrics disabled)
+  ansible.builtin.file:
+    path: "{{ rsd_metrics_token_file }}"
+    state: absent
+  when: rsd_metrics_token | default('') | length == 0
+
+- name: Apply the pending restart before the checks
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start the master
+  ansible.builtin.systemd_service:
+    name: rsd-master
+    enabled: true
+    state: started
+
+- name: Wait for the console port
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ rsd_web_port }}"
+    timeout: 60
+
+- name: Wait for the database and the CA (created at the first start)
+  ansible.builtin.wait_for:
+    path: /var/lib/rsd-master/pki/ca.crt
+    timeout: 60
+
+# --- web administrator password (idempotent: changed only when it differs) -----------------
+- name: Check the web administrator password
+  ansible.builtin.command:
+    argv: [rsd-master, check-password, --user, "{{ rsd_web_admin }}"]
+    stdin: "{{ rsd_admin_password }}"
+  register: master_password
+  changed_when: false
+  failed_when: master_password.rc not in [0, 1]
+  no_log: true
+  when: rsd_admin_password is defined
+
+- name: Set the web administrator password (closes the existing sessions)
+  ansible.builtin.command:
+    argv: [rsd-master, reset-password, --user, "{{ rsd_web_admin }}", --password-stdin]
+    stdin: "{{ rsd_admin_password }}"
+  changed_when: true
+  no_log: true
+  when: rsd_admin_password is defined and master_password.rc == 1
+
+# --- backups -----------------------------------------------------------------------------------
+- name: Enable the daily backup timer
+  ansible.builtin.systemd_service:
+    name: rsd-master-backup.timer
+    enabled: "{{ rsd_backup_timer | bool }}"
+    state: "{{ 'started' if rsd_backup_timer | bool else 'stopped' }}"
+
+# --- CA for the browsers and the agents ----------------------------------------------------------
+- name: Read the master information (CA fingerprint)
+  ansible.builtin.command: rsd-master info
+  register: master_info
+  changed_when: false
+
+- name: Copy the CA certificate to deploy/ansible/artifacts/<host>/rsd-ca.crt
+  ansible.builtin.fetch:
+    src: /var/lib/rsd-master/pki/ca.crt
+    dest: "{{ playbook_dir }}/artifacts/{{ inventory_hostname }}/rsd-ca.crt"
+    flat: true
+  when: rsd_fetch_ca | bool
+
+- name: Create an enrollment token
+  ansible.builtin.command:
+    argv: [rsd-master, create-token, --label, ansible, --uses, "{{ rsd_create_token_uses }}",
+           --ttl, "{{ rsd_create_token_ttl_minutes }}"]
+  register: master_token
+  changed_when: true
+  when: rsd_create_token | bool
+
+- name: Show the agent installation commands
+  vars:
+    fp: "{{ (master_info.stdout | from_json).ca_fingerprint }}"
+    host: "{{ ansible_host | default(inventory_hostname) }}"
+    tok: "{{ master_token.stdout }}"
+  ansible.builtin.debug:
+    msg:
+      - "Linux  : sudo rsd-agent enroll --token {{ tok }} --fingerprint {{ fp }} --master {{ host }}"
+      - "Windows: msiexec /i rsd-agent-{{ rsd_version }}-x64.msi /qn MASTER={{ host }} ENROLL_TOKEN={{ tok }} CA_FINGERPRINT={{ fp }}"
+      - "macOS  : sudo /usr/local/bin/rsd-agent enroll --token {{ tok }} --fingerprint {{ fp }} --master {{ host }}"
+  when: rsd_create_token | bool

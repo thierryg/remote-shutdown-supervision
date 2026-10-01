@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+=============================================================================
+Remote Shutdown - LAN parental control and machine management (master/agent)
+=============================================================================
+File    : packaging/macos/com.labworks.rsd-agent.plist
+Purpose : launchd daemon of the macOS agent (root, started at boot, restarted if it exits)
+Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+Project : remote-shutdown (version: VERSION)
+Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+=============================================================================
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.labworks.rsd-agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/rsd-agent</string>
+    <string>run</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardErrorPath</key>
+  <string>/Library/Logs/rsd-agent.log</string>
+  <key>StandardOutPath</key>
+  <string>/Library/Logs/rsd-agent.log</string>
+</dict>
+</plist>

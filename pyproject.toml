@@ -1,0 +1,86 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : pyproject.toml
+# Purpose : Master packaging metadata and tool settings (pytest, ruff, bandit, coverage)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# The production install is the Debian package (scripts/rsd-build-deb.sh), which relies on the
+# distribution's Python packages; this file serves development (pip install -e .) and the tools.
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rsd-master"
+# The version lives in VERSION only (see [tool.setuptools.dynamic]).
+dynamic = ["version"]
+description = "Remote Shutdown master: LAN parental control console, mutual-TLS agent hub and local PKI"
+readme = "README.md"
+license = {text = "0BSD"}
+authors = [{name = "Thierry Gayet", email = "thierry.gayet@labworks.fr"}]
+classifiers = [
+  "License :: OSI Approved :: Zero-Clause BSD (0BSD)",
+  "Programming Language :: Python :: 3.10",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: System :: Systems Administration",
+]
+requires-python = ">=3.10"
+# Lower bounds = the oldest supported distribution (Ubuntu 22.04 / Linux Mint 21).
+dependencies = [
+  "fastapi>=0.63",
+  "uvicorn>=0.15",
+  "cryptography>=3.4",
+  "bcrypt>=3.2",
+  "PyJWT>=2.3",
+]
+
+[project.scripts]
+rsd-master = "rsd_master.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["master"]
+include = ["rsd_master*"]
+
+[tool.setuptools.package-data]
+rsd_master = ["static/*", "static/i18n/*"]
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore::PendingDeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# pyflakes, pycodestyle errors, bugbear, pyupgrade, bandit-like checks
+select = ["F", "E9", "B", "UP", "S"]
+ignore = [
+  "B008",   # FastAPI Depends() in defaults is the framework's idiom
+  "S101",   # assert is used in tests
+  "S603",   # subprocess without shell: arguments are fixed lists
+  "S607",   # partial executable paths resolved from PATH on purpose
+  "S104",   # binding 0.0.0.0 is the purpose of a LAN service (firewall documented)
+  "UP006", "UP007", "UP035", "UP045",  # explicit typing style kept for Python 3.10 / old pydantic
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "E402"]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+# B101: asserts; B104: 0.0.0.0 bind is intended; B404/B603/B607: subprocess with fixed argument lists
+skips = ["B101", "B104", "B404", "B603", "B607"]
+
+[tool.coverage.run]
+source = ["rsd_master"]

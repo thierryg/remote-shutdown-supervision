@@ -1,0 +1,9 @@
+{
+  "master": "",
+  "web_port": 8443,
+  "agent_port": 8444,
+  "discovery_port": 50000,
+  "ca_fingerprint": "",
+  "enroll_token": "",
+  "log_level": "info"
+}

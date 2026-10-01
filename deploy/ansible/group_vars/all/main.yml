@@ -1,0 +1,113 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/group_vars/all/main.yml
+# Purpose : Every tunable of the master deployment, with its default and meaning
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Override per host in inventory/hosts.yml, or per run with -e. Secrets go in
+# group_vars/all/vault.yml (ansible-vault encrypted, see vault.example.yml), never here.
+
+# --- source tree (controller side) -----------------------------------------------------
+# Repository root, two levels above this playbook directory.
+rsd_repo_root: "{{ (playbook_dir ~ '/../..') | realpath }}"
+# Version deployed: single source VERSION.
+rsd_version: "{{ lookup('ansible.builtin.file', rsd_repo_root ~ '/VERSION') | trim }}"
+# Package installed on the target; built on the controller (scripts/rsd-build-deb.sh) when missing.
+rsd_master_deb: "{{ rsd_repo_root }}/dist/rsd-master_{{ rsd_version }}_all.deb"
+# Account that runs Ansible on the target (SSH lockout protection uses it).
+rsd_admin_user: "{{ ansible_user | default(lookup('ansible.builtin.env', 'USER')) }}"
+
+# --- preflight -------------------------------------------------------------------------
+# Supported distributions and minimum releases (the .deb uses their Python packages).
+rsd_supported:
+  Debian: "12"
+  Ubuntu: "22.04"
+  Linux Mint: "21"
+rsd_min_memory_mb: 512
+rsd_min_disk_free_gb: 1
+# Skip the repository reachability check (local apt mirror or proxy).
+rsd_offline: false
+
+# --- host identity ---------------------------------------------------------------------
+# Empty = keep the current host name.
+rsd_hostname: ""
+rsd_timezone: Europe/Paris
+# Publish <hostname>.local on the LAN (avahi mDNS).
+rsd_mdns: true
+# Apply pending updates during the deployment.
+rsd_upgrade_packages: true
+
+# --- network access control (nftables) --------------------------------------------------
+rsd_firewall: true
+# Clients allowed to reach the console (8443/tcp), the agent hub (8444/tcp) and the
+# discovery port (50000/udp). IPv4 and IPv6 prefixes can be mixed.
+rsd_lan_networks: ["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "fe80::/10", "fc00::/7"]
+# Sources allowed to open SSH sessions.
+rsd_admin_networks: "{{ rsd_lan_networks }}"
+# Prometheus server allowed to scrape node_exporter (:9100); empty = none.
+rsd_monitoring_server: ""
+# Extra raw nftables rules appended to the input chain (advanced).
+rsd_firewall_extra_rules: []
+
+# --- SSH ---------------------------------------------------------------------------------
+rsd_harden_ssh: true
+rsd_ssh_port: 22
+# Keep false: key-only authentication (the preflight refuses it if no key is installed).
+rsd_ssh_password_authentication: false
+rsd_ssh_allow_users: ["{{ rsd_admin_user }}"]
+rsd_ssh_authorized_keys: []
+
+# --- hardening -----------------------------------------------------------------------------
+rsd_harden: true
+rsd_harden_kernel: true
+rsd_unattended_upgrades: true
+rsd_unattended_reboot: false
+rsd_unattended_reboot_time: "04:30"
+rsd_removed_packages: [telnet, rsh-client, rsh-redone-client, talk, ftp, inetutils-telnet]
+
+# --- fail2ban --------------------------------------------------------------------------------
+rsd_fail2ban: true
+rsd_fail2ban_bantime: 1h
+rsd_fail2ban_findtime: 10m
+rsd_fail2ban_maxretry: 5
+# Console login failures and invalid enrollment tokens tolerated per findtime.
+rsd_fail2ban_login_maxretry: 10
+rsd_fail2ban_ignoreip: ["127.0.0.1/8", "::1"]
+
+# --- Remote Shutdown master (/etc/rsd-master/master.ini) -------------------------------------
+rsd_web_port: 8443
+rsd_agent_port: 8444
+rsd_discovery_enabled: true
+rsd_discovery_port: 50000
+# Extra DNS names / IP addresses of the server certificate (the host names and LAN addresses
+# are added automatically).
+rsd_tls_extra_names: []
+rsd_session_minutes: 30
+rsd_session_max_hours: 12
+rsd_keepalive_timeout: 35
+rsd_log_level: INFO
+# Web administrator account and password (rsd_admin_password in vault.yml). Leaving it undefined
+# is refused by the preflight unless rsd_allow_default_admin is true (then admin/admin must be
+# changed at the first login, as with a manual installation).
+rsd_web_admin: admin
+rsd_allow_default_admin: false
+# Daily backup timer (rsd-master-backup.timer, 14 archives in /var/lib/rsd-master/backups).
+rsd_backup_timer: true
+# Copy the CA certificate to deploy/ansible/artifacts/<host>/rsd-ca.crt (browsers, agents).
+rsd_fetch_ca: true
+# Create an enrollment token at the end of the deployment and print the agent commands.
+rsd_create_token: false
+rsd_create_token_uses: 5
+rsd_create_token_ttl_minutes: 1440
+
+# --- monitoring ----------------------------------------------------------------------------------
+# /metrics is enabled when rsd_metrics_token (vault.yml) is not empty.
+rsd_metrics_token_file: /etc/rsd-master/metrics.token
+# Install prometheus-node-exporter (system metrics, :9100, firewall: rsd_monitoring_server only).
+rsd_node_exporter: false
+
+# --- MOTD ----------------------------------------------------------------------------------------
+rsd_motd: true

@@ -1,0 +1,104 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/hardening/tasks/main.yml
+# Purpose : Linux hardening: kernel, core dumps, journald, automatic updates, sudo, legacy clients
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Baseline inspired by the CIS benchmarks and the ANSSI BP-028 guide, adapted to a small LAN
+# server. Kernel settings are skipped in a container.
+
+- name: Create the drop-in directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /etc/systemd/coredump.conf.d
+    - /etc/systemd/journald.conf.d
+    - /etc/security/limits.d
+
+- name: Install the kernel hardening parameters
+  ansible.builtin.template:
+    src: 60-rsd-hardening.conf.j2
+    dest: /etc/sysctl.d/60-rsd-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Apply sysctl
+  when: rsd_harden_kernel | bool and not rsd_in_container
+
+- name: Disable core dumps (they could contain the CA private key)
+  ansible.builtin.copy:
+    dest: "{{ item.dest }}"
+    content: "{{ item.content }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - dest: /etc/security/limits.d/10-rsd-nocore.conf
+      content: "# Managed by Ansible (rsd hardening): no core dumps.\n* hard core 0\n"
+    - dest: /etc/systemd/coredump.conf.d/10-rsd.conf
+      content: "# Managed by Ansible (rsd hardening): no core dumps.\n[Coredump]\nStorage=none\nProcessSizeMax=0\n"
+  loop_control:
+    label: "{{ item.dest }}"
+
+- name: Keep a persistent, bounded journal (the audit trail of the master lives there too)
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/10-rsd.conf
+    content: |
+      # Managed by Ansible (rsd hardening): persistent journal, 500 MB maximum.
+      [Journal]
+      Storage=persistent
+      Compress=yes
+      SystemMaxUse=500M
+      MaxRetentionSec=3month
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart journald
+
+- name: Install unattended-upgrades
+  ansible.builtin.apt:
+    name: [unattended-upgrades, apt-listchanges]
+    state: present
+  when: rsd_unattended_upgrades | bool
+
+- name: Configure the automatic security updates
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/apt/apt.conf.d/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [20auto-upgrades, 52rsd-unattended-upgrades]
+  when: rsd_unattended_upgrades | bool
+
+- name: Harden sudo (pty, log file, short credential cache)
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/10-rsd-hardening
+    content: |
+      # Managed by Ansible (rsd hardening).
+      Defaults use_pty
+      Defaults logfile="/var/log/sudo.log"
+      Defaults timestamp_timeout=5
+      Defaults passwd_tries=3
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Ignore Ctrl+Alt+Del on the console (no reboot by keyboard)
+  ansible.builtin.systemd_service:
+    name: ctrl-alt-del.target
+    masked: true
+
+- name: Remove clear-text network clients
+  ansible.builtin.apt:
+    name: "{{ rsd_removed_packages }}"
+    state: absent
+    purge: true

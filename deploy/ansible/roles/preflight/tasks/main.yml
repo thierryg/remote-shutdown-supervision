@@ -1,0 +1,205 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/preflight/tasks/main.yml
+# Purpose : Sanity checks BEFORE any change: controller, OS, resources, secrets, SSH lockout
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Blocking checks fail the play with an explicit message and change nothing; the soft ones
+# (clock, Docker on the host) only print a warning.
+
+# --- controller -------------------------------------------------------------------------
+- name: Check the Ansible version on the controller
+  ansible.builtin.assert:
+    that: ansible_version.full is version('2.16', '>=')
+    fail_msg: "ansible-core >= 2.16 is required (found {{ ansible_version.full }}): use ./rsd-deploy.sh, which falls back to uvx."
+    quiet: true
+
+- name: Check the source tree on the controller
+  ansible.builtin.stat:
+    path: "{{ rsd_repo_root }}/{{ item }}"
+  loop:
+    - VERSION
+    - scripts/rsd-build-deb.sh
+    - packaging/debian/master/control
+    - deploy/motd/rsd-motd
+  register: preflight_src
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Assert that the source tree is complete
+  ansible.builtin.assert:
+    that: preflight_src.results | rejectattr('stat.exists') | list | length == 0
+    fail_msg: "Missing in {{ rsd_repo_root }}: {{ preflight_src.results | rejectattr('stat.exists') | map(attribute='item') | join(', ') }}"
+    quiet: true
+  run_once: true
+
+- name: Announce the version being deployed
+  ansible.builtin.debug:
+    msg: "Deploying rsd-master {{ rsd_version }} from {{ rsd_repo_root }} to {{ inventory_hostname }} ({{ ansible_host | default(inventory_hostname) }})"
+  run_once: true
+
+# --- operating system and resources ---------------------------------------------------
+- name: Check the distribution and its release
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution in rsd_supported
+      - ansible_distribution_version is version(rsd_supported[ansible_distribution] | default('999'), '>=')
+    fail_msg: >-
+      Supported: {{ rsd_supported.items() | map('join', ' ') | join('+, ') }}+ (the master uses their
+      python3-fastapi packages); found {{ ansible_distribution }} {{ ansible_distribution_version }}.
+    quiet: true
+
+- name: Check the init system
+  ansible.builtin.assert:
+    that: ansible_service_mgr == 'systemd'
+    fail_msg: "systemd is required (found {{ ansible_service_mgr }})."
+    quiet: true
+
+- name: Check the memory
+  ansible.builtin.assert:
+    that: ansible_memtotal_mb >= rsd_min_memory_mb | int
+    fail_msg: "At least {{ rsd_min_memory_mb }} MB RAM are required (found {{ ansible_memtotal_mb }} MB)."
+    quiet: true
+
+- name: Measure the free space of /var
+  ansible.builtin.command: df --output=avail -B1G /var
+  register: preflight_df
+  changed_when: false
+
+- name: Check the free disk space
+  ansible.builtin.assert:
+    that: preflight_df.stdout_lines[-1] | trim | int >= rsd_min_disk_free_gb | int
+    fail_msg: "At least {{ rsd_min_disk_free_gb }} GB free on /var are required (database, backups)."
+    quiet: true
+
+# --- secrets ------------------------------------------------------------------------------
+- name: Check the web administrator password (vault.yml)
+  ansible.builtin.assert:
+    that: >-
+      rsd_allow_default_admin | bool
+      or (rsd_admin_password is defined and rsd_admin_password | length >= 10
+          and rsd_admin_password | lower not in ['admin', 'password', rsd_web_admin | lower]
+          and rsd_admin_password != 'change-me-to-a-long-passphrase')
+    fail_msg: >-
+      Define rsd_admin_password (10+ characters, not the example value) in group_vars/all/vault.yml,
+      or set rsd_allow_default_admin: true to keep admin/admin until the first login.
+    quiet: true
+  no_log: true
+
+- name: Check the metrics token
+  ansible.builtin.assert:
+    that: rsd_metrics_token | default('') | length == 0 or rsd_metrics_token | length >= 16
+    fail_msg: "rsd_metrics_token must be empty (metrics disabled) or at least 16 characters."
+    quiet: true
+  no_log: true
+
+# --- privileges and SSH lockout protection -------------------------------------------------
+- name: Check that privilege escalation works
+  ansible.builtin.command: id -u
+  register: preflight_uid
+  changed_when: false
+
+- name: Assert root privileges
+  ansible.builtin.assert:
+    that: preflight_uid.stdout == '0'
+    fail_msg: "sudo did not give root: check that {{ rsd_admin_user }} may use sudo (use -K for the password)."
+    quiet: true
+
+- name: Look for an SSH key of the administrator account
+  ansible.builtin.stat:
+    path: "~{{ rsd_admin_user }}/.ssh/authorized_keys"
+  register: preflight_keys
+
+- name: Refuse to disable SSH passwords without a key (lockout protection)
+  ansible.builtin.assert:
+    that: >-
+      not rsd_harden_ssh | bool or rsd_ssh_password_authentication | bool
+      or (preflight_keys.stat.exists and preflight_keys.stat.size > 0)
+      or rsd_ssh_authorized_keys | length > 0
+    fail_msg: >-
+      Password SSH login would be disabled but {{ rsd_admin_user }} has no authorized key: run
+      "ssh-copy-id {{ rsd_admin_user }}@{{ ansible_host | default(inventory_hostname) }}" first.
+    quiet: true
+
+- name: Refuse an AllowUsers list that would exclude the administrator (lockout protection)
+  ansible.builtin.assert:
+    that: rsd_ssh_allow_users | length == 0 or rsd_admin_user in rsd_ssh_allow_users
+    fail_msg: "{{ rsd_admin_user }} must be listed in rsd_ssh_allow_users."
+    quiet: true
+
+- name: Read the address the controller connects from
+  ansible.builtin.command: printenv SSH_CLIENT
+  register: preflight_ssh_client
+  become: false
+  changed_when: false
+  failed_when: false
+
+- name: Check that the controller address is inside rsd_admin_networks (lockout protection)
+  ansible.builtin.command:
+    argv: >-
+      {{ ['python3', '-c',
+          'import ipaddress, sys; ip = ipaddress.ip_address(sys.argv[1]); '
+          ~ 'sys.exit(0 if any(ip in ipaddress.ip_network(n, strict=False) for n in sys.argv[2:]) else 1)',
+          preflight_ssh_client.stdout.split()[0]] + rsd_admin_networks }}
+  when: rsd_firewall | bool and preflight_ssh_client.stdout | length > 0
+  register: preflight_admin_net
+  changed_when: false
+  failed_when: false
+
+- name: Assert that the firewall will not block the controller
+  ansible.builtin.assert:
+    that: preflight_admin_net.rc | default(0) == 0
+    fail_msg: >-
+      This controller connects from {{ preflight_ssh_client.stdout.split()[0] | default('?') }}, outside
+      rsd_admin_networks {{ rsd_admin_networks }}: add it, or SSH would be blocked after the deployment.
+    quiet: true
+
+# --- ports and coexistence -------------------------------------------------------------------
+- name: Probe the master ports
+  ansible.builtin.command: "ss -H -ltnp '( sport = :{{ rsd_web_port }} or sport = :{{ rsd_agent_port }} )'"
+  register: preflight_ports
+  changed_when: false
+
+- name: Refuse master ports held by another program
+  ansible.builtin.assert:
+    that: preflight_ports.stdout_lines | reject('search', 'python3') | list | length == 0
+    fail_msg: "Ports {{ rsd_web_port }}/{{ rsd_agent_port }} are used by another program: {{ preflight_ports.stdout_lines }}"
+    quiet: true
+
+- name: Detect Docker on the host (it needs IP forwarding)
+  ansible.builtin.stat:
+    path: /usr/bin/dockerd
+  register: preflight_docker
+
+- name: Record the host facts used by the roles
+  ansible.builtin.set_fact:
+    rsd_host_has_docker: "{{ preflight_docker.stat.exists }}"
+
+- name: Read the clock synchronization state
+  ansible.builtin.command: timedatectl show -p NTPSynchronized --value
+  register: preflight_ntp
+  changed_when: false
+  failed_when: false
+
+- name: Warn when the clock is not synchronized (certificates, audit timestamps)
+  ansible.builtin.debug:
+    msg: "WARNING: the system clock is not NTP-synchronized yet (timedatectl status)."
+  when: preflight_ntp.stdout | default('') != 'yes' and not rsd_in_container
+
+- name: Remember whether this is the first installation
+  ansible.builtin.stat:
+    path: /var/lib/rsd-master/rsd-master.db
+  register: preflight_db
+
+- name: Preflight summary
+  ansible.builtin.debug:
+    msg:
+      - "OS          : {{ ansible_distribution }} {{ ansible_distribution_version }} ({{ ansible_kernel }})"
+      - "CPU / RAM   : {{ ansible_processor_vcpus }} threads · {{ ansible_memtotal_mb }} MB"
+      - "Install     : {{ 'upgrade of an existing installation' if preflight_db.stat.exists else 'first installation' }}"
+      - "Container   : {{ rsd_in_container }} (kernel settings are skipped in a container)"
+      - "Docker      : {{ rsd_host_has_docker }} (IP forwarding kept when present)"

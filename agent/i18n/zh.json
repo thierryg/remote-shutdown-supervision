@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "此电脑将在 {seconds} 秒后关机。",
+  "shutdown.cancelled": "已取消计划的关机。",
+  "policy.warning": "此电脑将在 {minutes} 分钟后关机：已达到最长使用时间。",
+  "policy.shutdown": "已达到最长使用时间：此电脑将在 {seconds} 秒后关机。",
+  "chat.from": "来自 {author} 的消息",
+  "button.ok": "确定",
+  "button.close": "关闭",
+  "button.reply": "回复"
+}

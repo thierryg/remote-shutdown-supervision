@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "This computer will shut down in {seconds} seconds.",
+  "shutdown.cancelled": "The scheduled shutdown was cancelled.",
+  "policy.warning": "This computer will shut down in {minutes} minute(s): the usage time limit is reached.",
+  "policy.shutdown": "Usage time limit reached: this computer will shut down in {seconds} seconds.",
+  "chat.from": "Message from {author}",
+  "button.ok": "OK",
+  "button.close": "Close",
+  "button.reply": "Reply"
+}

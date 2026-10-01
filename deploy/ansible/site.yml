@@ -1,0 +1,42 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/site.yml
+# Purpose : Main playbook: deploy and harden the Remote Shutdown master on Debian / Ubuntu / Mint
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Run through the wrapper (recommended):   ./rsd-deploy.sh deploy
+# or directly:                             ansible-playbook site.yml
+#
+# Tags (--tags / --skip-tags): preflight, base, hardening, firewall, ssh, master, fail2ban,
+# monitoring, motd, postflight.
+# The role order matters: the firewall allows the SSH port before sshd is reconfigured, the
+# master is installed before fail2ban watches its journal, the postflight runs last.
+
+- name: Deploy the Remote Shutdown master
+  hosts: rsd_master
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Derive the facts shared by every role
+      ansible.builtin.set_fact:
+        # Containers (CI test harness) cannot change kernel settings or AppArmor.
+        rsd_in_container: >-
+          {{ ansible_virtualization_role | default('') == 'guest'
+             and ansible_virtualization_type | default('') in ['docker', 'container', 'podman', 'lxc', 'systemd-nspawn'] }}
+      tags: [always]
+
+  roles:
+    - { role: preflight, tags: [preflight] }
+    - { role: base, tags: [base] }
+    - { role: hardening, tags: [hardening], when: rsd_harden | bool }
+    - { role: firewall, tags: [firewall], when: rsd_firewall | bool }
+    - { role: ssh, tags: [ssh], when: rsd_harden_ssh | bool }
+    - { role: master, tags: [master] }
+    - { role: fail2ban, tags: [fail2ban], when: rsd_fail2ban | bool }
+    - { role: monitoring, tags: [monitoring] }
+    - { role: motd, tags: [motd], when: rsd_motd | bool }
+    - { role: postflight, tags: [postflight] }

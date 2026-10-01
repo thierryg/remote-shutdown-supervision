@@ -1,0 +1,22 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/fail2ban/templates/rsd-master.conf.j2
+# Purpose : fail2ban filter of the master structured log (journal)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# {{ ansible_managed }} - /etc/fail2ban/filter.d/rsd-master.conf
+# Matches the JSON lines of rsd-master in the journal, e.g.:
+#   {"ts": "...", "level": "WARNING", "logger": "rsd_master.web", "msg": "login failed", "ip": "192.0.2.10", "user": "x"}
+#   {"ts": "...", "level": "WARNING", "logger": "rsd_master.web", "msg": "enrollment refused: invalid token", "ip": "192.0.2.10", ...}
+# The journal backend prefixes each message with "host unit[pid]: " (__prefix_line).
+# Test: fail2ban-regex systemd-journal /etc/fail2ban/filter.d/rsd-master.conf
+[INCLUDES]
+before = common.conf
+
+[Definition]
+failregex = ^%(__prefix_line)s\{.*"msg": "(?:login failed|enrollment refused: invalid token)", "ip": "<HOST>"
+ignoreregex =
+journalmatch = _SYSTEMD_UNIT=rsd-master.service

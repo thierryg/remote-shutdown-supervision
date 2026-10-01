@@ -1,0 +1,11 @@
+{
+  "title": "Remote Shutdown",
+  "shutdown.default": "Dieser Computer wird in {seconds} Sekunden heruntergefahren.",
+  "shutdown.cancelled": "Das geplante Herunterfahren wurde abgebrochen.",
+  "policy.warning": "Dieser Computer wird in {minutes} Minute(n) heruntergefahren: Die maximale Nutzungszeit ist erreicht.",
+  "policy.shutdown": "Maximale Nutzungszeit erreicht: Dieser Computer wird in {seconds} Sekunden heruntergefahren.",
+  "chat.from": "Nachricht von {author}",
+  "button.ok": "OK",
+  "button.close": "Schließen",
+  "button.reply": "Antworten"
+}

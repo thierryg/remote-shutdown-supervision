@@ -1,0 +1,58 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : packaging/systemd/rsd-master.service
+# Purpose : systemd unit of the master (unprivileged, sandboxed)
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+[Unit]
+Description=Remote Shutdown master (web console, agent hub, LAN discovery)
+Documentation=file:///usr/share/doc/rsd-master/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rsd-master
+Group=rsd-master
+ExecStart=/usr/bin/rsd-master serve
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+StateDirectory=rsd-master
+StateDirectoryMode=0750
+UMask=0077
+# Sandboxing: the master only needs its state directory and the network.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Resource accounting (systemd-cgtop, systemctl status): CPU, memory, I/O, IP traffic.
+CPUAccounting=yes
+MemoryAccounting=yes
+IOAccounting=yes
+IPAccounting=yes
+TasksAccounting=yes
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

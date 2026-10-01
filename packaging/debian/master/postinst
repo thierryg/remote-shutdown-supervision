@@ -1,0 +1,39 @@
+#!/bin/sh
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : packaging/debian/master/postinst
+# Purpose : Debian postinst: service account, byte-compilation, enable and start the master
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+set -e
+
+case "$1" in
+  configure)
+    if ! getent passwd rsd-master >/dev/null; then
+      adduser --system --group --home /var/lib/rsd-master --no-create-home --quiet rsd-master
+    fi
+    install -d -o rsd-master -g rsd-master -m 0750 /var/lib/rsd-master
+    chown root:rsd-master /etc/rsd-master/master.ini
+    chmod 0640 /etc/rsd-master/master.ini
+    python3 -m compileall -q /usr/lib/rsd-master >/dev/null 2>&1 || true
+    if [ -d /run/systemd/system ]; then
+      systemctl daemon-reload
+      systemctl enable rsd-master.service rsd-master-backup.timer >/dev/null 2>&1 || true
+      systemctl restart rsd-master.service || true
+      systemctl start rsd-master-backup.timer >/dev/null 2>&1 || true
+    fi
+    cat <<'MSG'
+
+Remote Shutdown master installed.
+  Web console : https://<this-host>:8443/   (first login: admin / admin, change it at once)
+  Agent ports : 8444/tcp (mutual TLS), 50000/udp (discovery)
+  Firewall    : sudo ufw allow 8443,8444/tcp && sudo ufw allow 50000/udp
+  CLI         : sudo rsd-master info | create-token | reset-password | verify-audit
+
+MSG
+    ;;
+esac
+exit 0

@@ -1,0 +1,16 @@
+# =============================================================================
+# Remote Shutdown - LAN parental control and machine management (master/agent)
+# -----------------------------------------------------------------------------
+# File    : deploy/ansible/roles/ssh/handlers/main.yml
+# Purpose : Handlers of the ssh role
+# Author  : Thierry Gayet <thierry.gayet@labworks.fr>
+# Project : remote-shutdown (version: VERSION)
+# Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
+# =============================================================================
+# Existing sessions (including this Ansible connection) survive a restart of sshd. The unit is
+# "ssh" on Debian, Ubuntu and Linux Mint.
+- name: Restart ssh
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: restarted
+    daemon_reload: true
