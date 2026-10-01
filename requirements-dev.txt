@@ -15,5 +15,5 @@ cryptography>=3.4
 bcrypt>=3.2
 PyJWT>=2.3
 httpx>=0.24               # fastapi.testclient on recent Starlette
-requests>=2.25            # fastapi.testclient on old Starlette (0.13)
+requests>=2.34.2            # fastapi.testclient on old Starlette (0.13)
 pytest>=7

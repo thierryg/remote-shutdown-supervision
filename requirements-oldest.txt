@@ -15,5 +15,5 @@ uvicorn==0.15.0
 cryptography==3.4.8
 bcrypt==3.2.0
 PyJWT==2.3.0
-requests>=2.25
+requests>=2.34.2
 pytest>=7
