@@ -130,7 +130,7 @@ jobs:
           --image debian:12 --image ubuntu:22.04
       - run: make test-rpm
       - run: make test-rpm RSD_RPM_MASTER_IMAGE=opensuse/leap:latest
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-windows-packages
           path: |
@@ -190,7 +190,7 @@ jobs:
         env:
           DEVELOPER_ID_APP: ${{ secrets.DEVELOPER_ID_APP }}
           DEVELOPER_ID_INSTALLER: ${{ secrets.DEVELOPER_ID_INSTALLER }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-package
           path: dist/*.pkg
