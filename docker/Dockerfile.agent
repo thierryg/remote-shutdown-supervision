@@ -19,7 +19,7 @@ COPY VERSION /VERSION
 RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
       -ldflags "-s -w -X main.version=$(cat /VERSION)" -o /rsd-agent .
 
-FROM alpine:3.21
+FROM alpine:3.24
 RUN adduser -S -D -H -h /var/lib/rsd-agent rsd-agent \
  && install -d -o rsd-agent -m 0700 /var/lib/rsd-agent
 COPY --from=build /rsd-agent /usr/bin/rsd-agent
