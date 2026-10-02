@@ -2,10 +2,20 @@
 # Remote Shutdown - LAN parental control and machine management (master/agent)
 # -----------------------------------------------------------------------------
 # File    : .gitleaks.toml
-# Purpose : gitleaks configuration (CI "secrets" job, pre-commit): default rules
+# Purpose : gitleaks configuration (CI "secrets" job, pre-commit): default rules + test-value allowlist
 # Author  : Thierry Gayet <thierry.gayet@labworks.fr>
 # Project : remote-shutdown (version: VERSION)
 # Copyright (c) 2026 Thierry Gayet. SPDX-License-Identifier: 0BSD
 # =============================================================================
 [extend]
 useDefault = true
+
+# Known false positives, matched by exact value (never by path: a real secret added to the same
+# file must still be caught). Each one is a public test value, not a credential.
+[allowlist]
+description = "Public test values"
+regexTarget = "match"
+regexes = [
+  # tests/browser/ui_check.py: admin password set on the throwaway master of `make ui-check`.
+  '''Une-Phrase-Secrete-2026''',
+]

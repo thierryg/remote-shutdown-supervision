@@ -21,6 +21,18 @@ heading. Never edit the version anywhere else.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-02
+
+### Fixed
+- `docker/rsd-start.sh` checks the published ports (`--https-port`, `--agent-port`) before
+  starting the master: a port already taken on the host (a development master, another
+  container) stops the script with exit code 6, the name of the container or process holding
+  it, and the option to pick another port, instead of Docker's bare "port is already allocated".
+- CI `secrets` job (gitleaks): the throwaway admin password of the browser check
+  (`tests/browser/ui_check.py`) was reported as a generic API key; `.gitleaks.toml` now
+  allowlists that exact value (not the file), so the history scan passes and any other
+  secret in the same file is still caught.
+
 ## [0.3.0] - 2026-10-01
 
 ### Added

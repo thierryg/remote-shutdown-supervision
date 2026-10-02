@@ -74,7 +74,7 @@ cp group_vars/all/vault.example.yml group_vars/all/vault.yml && ansible-vault en
 **Try it in Docker** (master + two simulated agents, nothing else installed):
 
 ```bash
-docker/rsd-start.sh        # https://localhost:8443/  (admin / admin)
+docker/rsd-start.sh        # https://localhost:8443/  (admin / admin; --https-port N if 8443 is taken)
 docker/rsd-status.sh       # docker/rsd-stop.sh, docker/rsd-clean.sh
 ```
 

@@ -38,6 +38,7 @@
 #   1  a command failed (build, compose)
 #   2  usage error
 #   4  prerequisite missing (docker, compose, curl)
+#   6  a published port (--https-port, --agent-port) is already taken on 127.0.0.1
 #   7  Docker daemon unreachable, or the console / the agents did not come up in time
 #   8  started, but the agents are not UP yet (see docker/rsd-status.sh --logs 50)
 #   130 interrupted
@@ -69,6 +70,39 @@ parse_args() {
 
 # ensure_network: create the project network once (see RSD_DOCKER_SUBNET in the header).
 ensure_network() { ensure_docker_network "$NETWORK" "com.docker.compose.project=$PROJECT"; }
+
+# port_in_use PORT: success when something already listens on TCP PORT of this host.
+port_in_use() {
+  if command -v ss >/dev/null 2>&1; then
+    [[ -n "$(ss -Hltn "sport = :$1" 2>/dev/null)" ]]
+  else
+    (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
+  fi
+}
+
+# port_owner PORT: who holds PORT (container publishing it, else the listening process; best effort).
+port_owner() {
+  local who
+  who="$(docker ps --filter "publish=$1" --format 'container {{.Names}}' 2>/dev/null | head -1)"
+  [[ -z "$who" ]] && command -v ss >/dev/null 2>&1 &&
+    who="$(ss -Hltnp "sport = :$1" 2>/dev/null | grep -o 'users:(("[^"]*",pid=[0-9]*' | head -1 |
+      sed 's/users:(("\([^"]*\)",pid=\([0-9]*\)/process \1 (pid \2)/')"
+  echo "${who:-an unknown process (sudo ss -ltnp | grep :$1)}"
+}
+
+# check_ports: fail before compose when a published port is taken by something else than our
+# running master (Docker would only say "port is already allocated").
+check_ports() {
+  [[ -n "$(compose ps -q --status running master 2>/dev/null)" ]] && return 0
+  local port opt busy=0
+  for port in "$RSD_HTTPS_PORT" "$RSD_AGENT_PORT"; do
+    port_in_use "$port" || continue
+    [[ "$port" == "$RSD_HTTPS_PORT" ]] && opt=--https-port || opt=--agent-port
+    log_error "port $port already in use by $(port_owner "$port"): stop it or pick another one ($opt N)"
+    busy=1
+  done
+  ((busy == 0)) || die "published port(s) unavailable on 127.0.0.1" "$E_NETWORK"
+}
 
 # build_images: build the master and agent images (cached layers make later builds fast).
 build_images() {
@@ -160,6 +194,7 @@ main() {
   require_docker
   require_cmd curl sed
   log_info "remote-shutdown $(rsd_version) · local Docker test"
+  check_ports
   install -d -m 700 "$LOCAL_DIR"
   build_images
   ensure_network
